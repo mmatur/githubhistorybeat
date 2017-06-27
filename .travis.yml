@@ -6,7 +6,7 @@ services:
 language: go
 
 go:
-  - 1.6
+  - 1.7.4
 
 os:
   - linux
@@ -34,7 +34,9 @@ before_install:
   - cd $HOME/gopath/src/github.com/mmatur/githubhistorybeat/
 
 install:
-  - true
+  - go get -v github.com/Masterminds/glide
+  - cd $GOPATH/src/github.com/Masterminds/glide && git checkout v0.12.3 && go install && cd -
+  - glide install
 
 script:
   - make $TARGETS
