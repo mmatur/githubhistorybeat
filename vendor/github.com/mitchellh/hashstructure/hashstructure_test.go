@@ -204,6 +204,7 @@ func TestHash_equalIgnore(t *testing.T) {
 			t.Fatalf("zero hash: %#v", tc.One)
 		}
 
+
 		// Compare
 		if (one == two) != tc.Match {
 			t.Fatalf("bad, expected: %#v\n\n%#v\n\n%#v", tc.Match, tc.One, tc.Two)
