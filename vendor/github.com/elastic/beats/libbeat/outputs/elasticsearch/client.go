@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"expvar"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -14,12 +13,14 @@ import (
 
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/logp"
+	"github.com/elastic/beats/libbeat/monitoring"
 	"github.com/elastic/beats/libbeat/outputs"
 	"github.com/elastic/beats/libbeat/outputs/mode"
 	"github.com/elastic/beats/libbeat/outputs/outil"
 	"github.com/elastic/beats/libbeat/outputs/transport"
 )
 
+// Client is an elasticsearch client.
 type Client struct {
 	Connection
 	tlsConfig *transport.TLSConfig
@@ -40,6 +41,7 @@ type Client struct {
 	proxyURL         *url.URL
 }
 
+// ClientSettings contains the settings for a client.
 type ClientSettings struct {
 	URL                string
 	Proxy              *url.URL
@@ -55,6 +57,7 @@ type ClientSettings struct {
 
 type connectCallback func(client *Client) error
 
+// Connection manages the connection for a given client.
 type Connection struct {
 	URL      string
 	Username string
@@ -70,14 +73,14 @@ type Connection struct {
 
 // Metrics that can retrieved through the expvar web interface.
 var (
-	ackedEvents            = expvar.NewInt("libbeat.es.published_and_acked_events")
-	eventsNotAcked         = expvar.NewInt("libbeat.es.published_but_not_acked_events")
-	publishEventsCallCount = expvar.NewInt("libbeat.es.call_count.PublishEvents")
+	ackedEvents            = monitoring.NewInt(outputs.Metrics, "elasticsearch.events.acked")
+	eventsNotAcked         = monitoring.NewInt(outputs.Metrics, "elasticsearch.events.not_acked")
+	publishEventsCallCount = monitoring.NewInt(outputs.Metrics, "elasticsearch.publishEvents.call.count")
 
-	statReadBytes   = expvar.NewInt("libbeat.es.publish.read_bytes")
-	statWriteBytes  = expvar.NewInt("libbeat.es.publish.write_bytes")
-	statReadErrors  = expvar.NewInt("libbeat.es.publish.read_errors")
-	statWriteErrors = expvar.NewInt("libbeat.es.publish.write_errors")
+	statReadBytes   = monitoring.NewInt(outputs.Metrics, "elasticsearch.read.bytes")
+	statWriteBytes  = monitoring.NewInt(outputs.Metrics, "elasticsearch.write.bytes")
+	statReadErrors  = monitoring.NewInt(outputs.Metrics, "elasticsearch.read.errors")
+	statWriteErrors = monitoring.NewInt(outputs.Metrics, "elasticsearch.write.errors")
 )
 
 var (
@@ -93,6 +96,11 @@ var (
 	errExcpectedObjectEnd    = errors.New("expected end of object")
 )
 
+const (
+	eventType = "doc"
+)
+
+// NewClient instantiates a new client.
 func NewClient(
 	s ClientSettings,
 	onConnectCallback connectCallback,
@@ -132,10 +140,12 @@ func NewClient(
 	}
 
 	iostats := &transport.IOStats{
-		Read:        statReadBytes,
-		Write:       statWriteBytes,
-		ReadErrors:  statReadErrors,
-		WriteErrors: statWriteErrors,
+		Read:               statReadBytes,
+		Write:              statWriteBytes,
+		ReadErrors:         statReadErrors,
+		WriteErrors:        statWriteErrors,
+		OutputsWrite:       outputs.WriteBytes,
+		OutputsWriteErrors: outputs.WriteErrors,
 	}
 	dialer = transport.StatsDialer(dialer, iostats)
 	tlsDialer = transport.StatsDialer(tlsDialer, iostats)
@@ -195,6 +205,7 @@ func NewClient(
 	return client, nil
 }
 
+// Clone clones a client.
 func (client *Client) Clone() *Client {
 	// when cloning the connection callback and params are not copied. A
 	// client's close is for example generated for topology-map support. With params
@@ -265,6 +276,7 @@ func (client *Client) PublishEvents(
 	}
 
 	ackedEvents.Add(int64(len(data) - len(failedEvents)))
+	outputs.AckedEvents.Add(int64(len(data) - len(failedEvents)))
 	eventsNotAcked.Add(int64(len(failedEvents)))
 	if len(failedEvents) > 0 {
 		if sendErr == nil {
@@ -320,7 +332,7 @@ func createEventBulkMeta(
 		return bulkMeta{
 			Index: bulkMetaIndex{
 				Index:   getIndex(event, index),
-				DocType: event["type"].(string),
+				DocType: eventType,
 			},
 		}
 	}
@@ -338,7 +350,7 @@ func createEventBulkMeta(
 		Index: bulkMetaIndex{
 			Index:    getIndex(event, index),
 			Pipeline: pipeline,
-			DocType:  event["type"].(string),
+			DocType:  eventType,
 		},
 	}
 }
@@ -470,6 +482,10 @@ func itemStatus(reader *jsonReader) (int, []byte, error) {
 
 	// parse actual item response code and error message
 	status, msg, err := itemStatusInner(reader)
+	if err != nil {
+		logp.Err("Failed to parse bulk response item: %s", err)
+		return 0, nil, err
+	}
 
 	// close dictionary. Expect outer dictionary to have only one element
 	kind, _, err = reader.step()
@@ -530,12 +546,11 @@ func itemStatusInner(reader *jsonReader) (int, []byte, error) {
 	return status, msg, nil
 }
 
+// PublishEvent publishes an event.
 func (client *Client) PublishEvent(data outputs.Data) error {
 	// insert the events one by one
-
 	event := data.Event
 	index := getIndex(event, client.index)
-	typ := event["type"].(string)
 
 	debugf("Publish event: %s", event)
 
@@ -549,9 +564,9 @@ func (client *Client) PublishEvent(data outputs.Data) error {
 
 	var status int
 	if pipeline == "" {
-		status, _, err = client.Index(index, typ, "", client.params, event)
+		status, _, err = client.Index(index, eventType, "", client.params, event)
 	} else {
-		status, _, err = client.Ingest(index, typ, pipeline, "", client.params, event)
+		status, _, err = client.Ingest(index, eventType, pipeline, "", client.params, event)
 	}
 
 	// check indexing error
@@ -575,20 +590,7 @@ func (client *Client) PublishEvent(data outputs.Data) error {
 	return nil
 }
 
-// LoadTemplate loads a template into Elasticsearch overwriting the existing
-// template if it exists. If you wish to not overwrite an existing template
-// then use CheckTemplate prior to calling this method.
-func (client *Client) LoadTemplate(templateName string, template map[string]interface{}) error {
-
-	path := "/_template/" + templateName
-	body, err := client.LoadJSON(path, template)
-	if err != nil {
-		return fmt.Errorf("couldn't load template: %v. Response body: %s", err, body)
-	}
-	logp.Info("Elasticsearch template with name '%s' loaded", templateName)
-	return nil
-}
-
+// LoadJSON creates a PUT request based on a JSON document.
 func (client *Client) LoadJSON(path string, json map[string]interface{}) ([]byte, error) {
 	status, body, err := client.Request("PUT", path, "", nil, json)
 	if err != nil {
@@ -601,19 +603,12 @@ func (client *Client) LoadJSON(path string, json map[string]interface{}) ([]byte
 	return body, nil
 }
 
-// CheckTemplate checks if a given template already exist. It returns true if
-// and only if Elasticsearch returns with HTTP status code 200.
-func (client *Client) CheckTemplate(templateName string) bool {
-
-	status, _, _ := client.Request("HEAD", "/_template/"+templateName, "", nil, nil)
-
-	if status != 200 {
-		return false
-	}
-
-	return true
+// GetVersion returns the elasticsearch version the client is connected to
+func (client *Client) GetVersion() string {
+	return client.Connection.version
 }
 
+// Connect connects the client.
 func (conn *Connection) Connect(timeout time.Duration) error {
 	var err error
 	conn.version, err = conn.Ping(timeout)
@@ -628,7 +623,7 @@ func (conn *Connection) Connect(timeout time.Duration) error {
 	return nil
 }
 
-// Ping sends a GET request to the Elasticsearch
+// Ping sends a GET request to the Elasticsearch.
 func (conn *Connection) Ping(timeout time.Duration) (string, error) {
 	debugf("ES Ping(url=%v, timeout=%v)", conn.URL, timeout)
 
@@ -659,10 +654,12 @@ func (conn *Connection) Ping(timeout time.Duration) (string, error) {
 	return response.Version.Number, nil
 }
 
+// Close closes a connection.
 func (conn *Connection) Close() error {
 	return nil
 }
 
+// Request sends a request via the connection.
 func (conn *Connection) Request(
 	method, path string,
 	pipeline string,

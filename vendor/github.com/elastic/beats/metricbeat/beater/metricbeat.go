@@ -12,6 +12,9 @@ import (
 
 	"github.com/elastic/beats/libbeat/cfgfile"
 	"github.com/pkg/errors"
+
+	// Add metricbeat specific processors
+	_ "github.com/elastic/beats/metricbeat/processor/kubernetes"
 )
 
 // Metricbeat implements the Beater interface for metricbeat.
@@ -73,7 +76,7 @@ func (bt *Metricbeat) Run(b *beat.Beat) error {
 	}
 
 	if bt.config.ReloadModules.Enabled() {
-		logp.Warn("BETA: feature dynamic configuration reloading is enabled.")
+		logp.Beta("feature dynamic configuration reloading is enabled.")
 		moduleReloader := cfgfile.NewReloader(bt.config.ReloadModules)
 		factory := module.NewFactory(b.Publisher)
 

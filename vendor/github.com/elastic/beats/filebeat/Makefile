@@ -2,11 +2,12 @@
 
 BEAT_NAME?=filebeat
 BEAT_DESCRIPTION?=Filebeat sends log files to Logstash or directly to Elasticsearch.
-SYSTEM_TESTS=true
+SYSTEM_TESTS?=true
 TEST_ENVIRONMENT?=true
 GOX_FLAGS=-arch="amd64 386 arm ppc64 ppc64le"
+ES_BEATS?=..
 
-include ../libbeat/scripts/Makefile
+include ${ES_BEATS}/libbeat/scripts/Makefile
 
 # This is called by the beats packer before building starts
 .PHONY: before-build
@@ -38,11 +39,10 @@ modules:
 .PHONY: configs
 configs: python-env
 	cat ${ES_BEATS}/filebeat/_meta/common.p1.yml > _meta/beat.yml
-	# disabled wile filebeat modules are Beta
-	#. ${PYTHON_ENV}/bin/activate; python ${ES_BEATS}/metricbeat/scripts/config_collector.py --beat ${BEAT_NAME} $(PWD) >> _meta/beat.yml
+	. ${PYTHON_ENV}/bin/activate; python ${ES_BEATS}/script/config_collector.py --beat ${BEAT_NAME} $(PWD) >> _meta/beat.yml
 	cat ${ES_BEATS}/filebeat/_meta/common.p2.yml >> _meta/beat.yml
 	cat ${ES_BEATS}/filebeat/_meta/common.full.p1.yml > _meta/beat.full.yml
-	. ${PYTHON_ENV}/bin/activate; python ${ES_BEATS}/metricbeat/scripts/config_collector.py --beat ${BEAT_NAME} --full $(PWD) >> _meta/beat.full.yml
+	. ${PYTHON_ENV}/bin/activate; python ${ES_BEATS}/script/config_collector.py --beat ${BEAT_NAME} --full $(PWD) >> _meta/beat.full.yml
 	cat ${ES_BEATS}/filebeat/_meta/common.full.p2.yml >> _meta/beat.full.yml
 
 # Collects all module docs

@@ -26,7 +26,6 @@ The following topics describe how to configure Packetbeat:
 * <<using-environ-vars>>
 * <<capturing-options>>
 * <<thrift-rpc>>
-* <<maintaining-topology>>
 * <<yaml-tips>>
 
 --

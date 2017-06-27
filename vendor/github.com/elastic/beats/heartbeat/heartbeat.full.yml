@@ -262,10 +262,31 @@ heartbeat.scheduler:
 #           http.code: 200
 #
 # The following example enriches each event with metadata from the cloud
-# provider about the host machine. It works on EC2, GCE, and DigitalOcean.
+# provider about the host machine. It works on EC2, GCE, DigitalOcean,
+# Tencent Cloud, and Alibaba Cloud.
 #
 #processors:
-#- add_cloud_metadata:
+#- add_cloud_metadata: ~
+#
+# The following example enriches each event with the machine's local time zone
+# offset from UTC.
+#
+#processors:
+#- add_locale:
+#    format: offset
+#
+# The following example enriches each event with docker metadata, it matches
+# given fields to an existing container id and adds info from that container:
+#
+#processors:
+#- add_docker_metadata:
+#    match_fields: ["system.process.cgroup.id"]
+#  host: "unix:///var/run/docker.sock"
+#  # To connect to Docker over TLS you must specify a client and CA certificate.
+#  #ssl:
+#  #  certificate_authority: "/etc/pki/root/ca.pem"
+#  #  certificate:           "/etc/pki/client/cert.pem"
+#  #  key:                   "/etc/pki/client/cert.key"
 #
 
 #================================ Outputs ======================================
@@ -302,7 +323,7 @@ output.elasticsearch:
 
   # Optional index name. The default is "heartbeat" plus date
   # and generates [heartbeat-]YYYY.MM.DD keys.
-  #index: "heartbeat-%{+yyyy.MM.dd}"
+  #index: "heartbeat-%{[beat.version]}-%{+yyyy.MM.dd}"
 
   # Optional ingest node pipeline. By default no pipeline will be used.
   #pipeline: ""
@@ -333,38 +354,6 @@ output.elasticsearch:
   # If `bulk_max_size` is reached before this interval expires, addition bulk index
   # requests are made.
   #flush_interval: 1s
-
-  # A template is used to set the mapping in Elasticsearch
-  # By default template loading is enabled and the template is loaded.
-  # These settings can be adjusted to load your own template or overwrite existing ones.
-
-  # Set to false to disable template loading.
-  #template.enabled: true
-
-  # Template name. By default the template name is heartbeat.
-  #template.name: "heartbeat"
-
-  # Path to template file
-  #template.path: "${path.config}/heartbeat.template.json"
-
-  # Overwrite existing template
-  #template.overwrite: false
-
-  # If set to true, heartbeat checks the Elasticsearch version at connect time, and if it
-  # is 2.x, it loads the file specified by the template.versions.2x.path setting. The
-  # default is true.
-  #template.versions.2x.enabled: true
-
-  # Path to the Elasticsearch 2.x version of the template file.
-  #template.versions.2x.path: "${path.config}/heartbeat.template-es2x.json"
-
-  # If set to true, heartbeat checks the Elasticsearch version at connect time, and if it
-  # is 6.x, it loads the file specified by the template.versions.6x.path setting. The
-  # default is true.
-  #template.versions.6x.enabled: true
-
-  # Path to the Elasticsearch 6.x version of the template file.
-  #template.versions.6x.path: "${path.config}/heartbeat.template-es6x.json"
 
   # Use SSL settings for HTTPS. Default is true.
   #ssl.enabled: true
@@ -757,40 +746,74 @@ output.elasticsearch:
 # These settings control loading the sample dashboards to the Kibana index. Loading
 # the dashboards is disabled by default and can be enabled either by setting the
 # options here, or by using the `-setup` CLI flag.
-#dashboards.enabled: false
+#setup.dashboards.enabled: false
 
 # The URL from where to download the dashboards archive. By default this URL
 # has a value which is computed based on the Beat name and version. For released
 # versions, this URL points to the dashboard archive on the artifacts.elastic.co
 # website.
-#dashboards.url:
+#setup.dashboards.url:
 
 # The directory from where to read the dashboards. It is used instead of the URL
 # when it has a value.
-#dashboards.directory:
+#setup.dashboards.directory:
 
 # The file archive (zip file) from where to read the dashboards. It is used instead
 # of the URL when it has a value.
-#dashboards.file:
+#setup.dashboards.file:
 
 # If this option is enabled, the snapshot URL is used instead of the default URL.
-#dashboards.snapshot: false
+#setup.dashboards.snapshot: false
 
 # The URL from where to download the snapshot version of the dashboards. By default
 # this has a value which is computed based on the Beat name and version.
-#dashboards.snapshot_url
+#setup.dashboards.snapshot_url
 
 # In case the archive contains the dashboards from multiple Beats, this lets you
 # select which one to load. You can load all the dashboards in the archive by
 # setting this to the empty string.
-#dashboards.beat: heartbeat
+#setup.dashboards.beat: heartbeat
 
 # The name of the Kibana index to use for setting the configuration. Default is ".kibana"
-#dashboards.kibana_index: .kibana
+#setup.dashboards.kibana_index: .kibana
 
 # The Elasticsearch index name. This overwrites the index name defined in the
 # dashboards and index pattern. Example: testbeat-*
-#dashboards.index:
+#setup.dashboards.index:
+
+#============================== Template =====================================
+
+# A template is used to set the mapping in Elasticsearch
+# By default template loading is enabled and the template is loaded.
+# These settings can be adjusted to load your own template or overwrite existing ones.
+
+# Set to false to disable template loading.
+#setup.template.enabled: true
+
+# Template name. By default the template name is heartbeat.
+# The version of the beat will always be appended to the given name
+# so the final name is heartbeat-%{[beat.version]}.
+#setup.template.name: "heartbeat"
+
+# Path to fields.yml file to generate the template
+#setup.template.fields: "${path.config}/fields.yml"
+
+# Overwrite existing template
+#setup.template.overwrite: false
+
+
+#================================ HTTP Endpoint ======================================
+# Each beat can expose internal data points through a http endpoint. For security
+# reason the endpoint is disabled by default. This feature is currently in beta.
+
+# Defines if http endpoint is enabled
+#http.enabled: false
+
+# Host to expose the http endpoint to. It is recommended to use only localhost.
+#http.host: localhost
+
+# Port on which the http endpoint is exposed. Default is 5066
+#http.port: 5066
 
 #================================ Logging ======================================
 # There are three options for the log output: syslog, file, stderr.

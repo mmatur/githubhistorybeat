@@ -54,10 +54,9 @@ Note that this allows for converting, renaming, and restructuring the data.
 package mapstriface
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
-
-	"encoding/json"
 
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/logp"
@@ -71,18 +70,27 @@ type ConvMap struct {
 }
 
 // Map drills down in the data dictionary by using the key
-func (convMap ConvMap) Map(key string, event common.MapStr, data map[string]interface{}) {
+func (convMap ConvMap) Map(key string, event common.MapStr, data map[string]interface{}) *schema.Errors {
+
 	subData, ok := data[convMap.Key].(map[string]interface{})
 	if !ok {
-		if !convMap.Optional {
+		err := schema.NewError(convMap.Key, "Error accessing sub-dictionary")
+		if convMap.Optional {
+			err.SetType(schema.OptionalType)
+		} else {
 			logp.Err("Error accessing sub-dictionary `%s`", convMap.Key)
 		}
-		return
+
+		errors := schema.NewErrors()
+		errors.AddError(err)
+
+		return errors
 	}
 
 	subEvent := common.MapStr{}
 	convMap.Schema.ApplyTo(subEvent, subData)
 	event[key] = subEvent
+	return nil
 }
 
 func (convMap ConvMap) HasKey(key string) bool {
@@ -120,8 +128,7 @@ func StrFromNum(key string, opts ...schema.SchemaOption) schema.Conv {
 func toStr(key string, data map[string]interface{}) (interface{}, error) {
 	emptyIface, err := common.MapStr(data).GetValue(key)
 	if err != nil {
-		fmt.Println(err)
-		return "", fmt.Errorf("Key %s not found", key)
+		return "", fmt.Errorf("Key %s not found: %s", key, err.Error())
 	}
 	str, ok := emptyIface.(string)
 	if !ok {
@@ -191,11 +198,22 @@ func toTime(key string, data map[string]interface{}) (interface{}, error) {
 	if !exists {
 		return common.Time(time.Unix(0, 0)), fmt.Errorf("Key %s not found", key)
 	}
-	ts, ok := emptyIface.(time.Time)
-	if !ok {
-		return common.Time(time.Unix(0, 0)), fmt.Errorf("Expected date, found %T", emptyIface)
+
+	switch emptyIface.(type) {
+	case time.Time:
+		ts, ok := emptyIface.(time.Time)
+		if ok {
+			return common.Time(ts), nil
+		}
+	case common.Time:
+		ts, ok := emptyIface.(common.Time)
+		if ok {
+			return ts, nil
+		}
 	}
-	return common.Time(ts), nil
+
+	return common.Time(time.Unix(0, 0)), fmt.Errorf("Expected date, found %T", emptyIface)
+
 }
 
 // Time creates a Conv object for converting Time objects.

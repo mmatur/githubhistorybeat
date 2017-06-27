@@ -11,12 +11,16 @@ import (
 	"github.com/elastic/beats/libbeat/logp"
 	"github.com/elastic/beats/libbeat/outputs/elasticsearch"
 
+	"github.com/elastic/beats/filebeat/channel"
 	cfg "github.com/elastic/beats/filebeat/config"
 	"github.com/elastic/beats/filebeat/crawler"
 	"github.com/elastic/beats/filebeat/fileset"
 	"github.com/elastic/beats/filebeat/publisher"
 	"github.com/elastic/beats/filebeat/registrar"
 	"github.com/elastic/beats/filebeat/spooler"
+
+	// Add filebeat level processors
+	_ "github.com/elastic/beats/filebeat/processor/kubernetes"
 )
 
 var (
@@ -37,7 +41,7 @@ func New(b *beat.Beat, rawConfig *common.Config) (beat.Beater, error) {
 		return nil, fmt.Errorf("Error reading config file: %v", err)
 	}
 
-	moduleRegistry, err := fileset.NewModuleRegistry(config.Modules, b.Version)
+	moduleRegistry, err := fileset.NewModuleRegistry(config.Modules, b.Info.Version)
 	if err != nil {
 		return nil, err
 	}
@@ -54,12 +58,20 @@ func New(b *beat.Beat, rawConfig *common.Config) (beat.Beater, error) {
 	// Add prospectors created by the modules
 	config.Prospectors = append(config.Prospectors, moduleProspectors...)
 
-	if !config.ProspectorReload.Enabled() && len(config.Prospectors) == 0 {
-		return nil, errors.New("No prospectors defined. What files do you want me to watch?")
+	haveEnabledProspectors := false
+	for _, prospector := range config.Prospectors {
+		if prospector.Enabled() {
+			haveEnabledProspectors = true
+			break
+		}
 	}
 
-	if *once && config.ProspectorReload.Enabled() {
-		return nil, errors.New("prospector reloading and -once cannot be used together.")
+	if !config.ConfigProspector.Enabled() && !haveEnabledProspectors {
+		return nil, errors.New("No modules or prospectors enabled and configuration reloading disabled. What files do you want me to watch?")
+	}
+
+	if *once && config.ConfigProspector.Enabled() {
+		return nil, errors.New("prospector configs and -once cannot be used together")
 	}
 
 	fb := &Filebeat{
@@ -137,7 +149,7 @@ func (fb *Filebeat) Run(b *beat.Beat) error {
 		return err
 	}
 
-	crawler, err := crawler.New(newSpoolerOutlet(fb.done, spooler, wgEvents), config.Prospectors, fb.done, *once)
+	crawler, err := crawler.New(channel.NewOutlet(fb.done, spooler.Channel, wgEvents), config.Prospectors, fb.done, *once)
 	if err != nil {
 		logp.Err("Could not init crawler: %v", err)
 		return err
@@ -179,7 +191,7 @@ func (fb *Filebeat) Run(b *beat.Beat) error {
 		spooler.Stop()
 	}()
 
-	err = crawler.Start(registrar, config.ProspectorReload)
+	err = crawler.Start(registrar, config.ConfigProspector)
 	if err != nil {
 		crawler.Stop()
 		return err

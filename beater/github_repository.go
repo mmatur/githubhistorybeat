@@ -2,10 +2,11 @@ package beater
 
 import (
 	"context"
+	"time"
+
 	"github.com/elastic/beats/libbeat/logp"
 	"github.com/google/go-github/github"
 	"golang.org/x/oauth2"
-	"time"
 )
 
 type GithubRepository struct {

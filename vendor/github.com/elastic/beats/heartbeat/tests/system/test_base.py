@@ -1,6 +1,6 @@
-from heartbeat import BaseTest
-
 import os
+
+from heartbeat import BaseTest
 
 
 class Test(BaseTest):
@@ -15,5 +15,4 @@ class Test(BaseTest):
 
         heartbeat_proc = self.start_beat()
         self.wait_until(lambda: self.log_contains("heartbeat is running"))
-        exit_code = heartbeat_proc.kill_and_wait()
-        assert exit_code == 0
+        heartbeat_proc.check_kill_and_wait()

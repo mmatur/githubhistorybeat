@@ -8,9 +8,10 @@ import (
 	"github.com/elastic/beats/libbeat/logp"
 	"github.com/elastic/beats/libbeat/publisher"
 
-	"github.com/mmatur/githubhistorybeat/config"
 	"sort"
 	"time"
+
+	"github.com/mmatur/githubhistorybeat/config"
 )
 
 type GithubHistoryBeat struct {

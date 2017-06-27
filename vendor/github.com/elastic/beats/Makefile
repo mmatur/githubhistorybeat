@@ -1,10 +1,18 @@
 
 BUILD_DIR=build
-COVERAGE_DIR=${BUILD_DIR}/coverage
+COVERAGE_DIR=$(BUILD_DIR)/coverage
 BEATS=packetbeat filebeat winlogbeat metricbeat heartbeat
-PROJECTS=libbeat ${BEATS}
+PROJECTS=libbeat $(BEATS)
 PROJECTS_ENV=libbeat filebeat metricbeat
 SNAPSHOT?=yes
+PYTHON_ENV?=$(BUILD_DIR)/python-env
+VIRTUALENV_PARAMS?=
+FIND=find . -type f -not -path "*/vendor/*" -not -path "*/build/*" -not -path "*/.git/*"
+GOLINT=golint
+GOLINT_REPO=github.com/golang/lint/golint
+REVIEWDOG=reviewdog
+REVIEWDOG_OPTIONS?=-diff "git diff master"
+REVIEWDOG_REPO=github.com/haya14busa/reviewdog/cmd/reviewdog
 
 # Runs complete testsuites (unit, system, integration) for all beats with coverage and race detection.
 # Also it builds the docs and the generators
@@ -28,18 +36,18 @@ unit:
 
 .PHONY: coverage-report
 coverage-report:
-	mkdir -p ${COVERAGE_DIR}
+	mkdir -p $(COVERAGE_DIR)
 	# Writes atomic mode on top of file
-	echo 'mode: atomic' > ./${COVERAGE_DIR}/full.cov
+	echo 'mode: atomic' > ./$(COVERAGE_DIR)/full.cov
 	# Collects all coverage files and skips top line with mode
-	-tail -q -n +2 ./filebeat/${COVERAGE_DIR}/*.cov >> ./${COVERAGE_DIR}/full.cov
-	-tail -q -n +2 ./packetbeat/${COVERAGE_DIR}/*.cov >> ./${COVERAGE_DIR}/full.cov
-	-tail -q -n +2 ./winlogbeat/${COVERAGE_DIR}/*.cov >> ./${COVERAGE_DIR}/full.cov
-	-tail -q -n +2 ./libbeat/${COVERAGE_DIR}/*.cov >> ./${COVERAGE_DIR}/full.cov
-	go tool cover -html=./${COVERAGE_DIR}/full.cov -o ${COVERAGE_DIR}/full.html
+	-tail -q -n +2 ./filebeat/$(COVERAGE_DIR)/*.cov >> ./$(COVERAGE_DIR)/full.cov
+	-tail -q -n +2 ./packetbeat/$(COVERAGE_DIR)/*.cov >> ./$(COVERAGE_DIR)/full.cov
+	-tail -q -n +2 ./winlogbeat/$(COVERAGE_DIR)/*.cov >> ./$(COVERAGE_DIR)/full.cov
+	-tail -q -n +2 ./libbeat/$(COVERAGE_DIR)/*.cov >> ./$(COVERAGE_DIR)/full.cov
+	go tool cover -html=./$(COVERAGE_DIR)/full.cov -o $(COVERAGE_DIR)/full.html
 
 .PHONY: update
-update:
+update: notice
 	$(foreach var,$(PROJECTS),$(MAKE) -C $(var) update || exit 1;)
 
 .PHONY: clean
@@ -55,20 +63,32 @@ clean-vendor:
 	sh script/clean_vendor.sh
 
 .PHONY: check
-check:
+check: python-env
 	$(foreach var,$(PROJECTS),$(MAKE) -C $(var) check || exit 1;)
+	# Checks also python files which are not part of the beats
+	. $(PYTHON_ENV)/bin/activate && $(FIND) -name *.py -exec autopep8 -d --max-line-length 120  {} \; | (! grep . -q) || (echo "Code differs from autopep8's style" && false)
 	# Validate that all updates were committed
 	$(MAKE) update
+	git diff | cat
 	git update-index --refresh
 	git diff-index --exit-code HEAD --
 
-.PHONY: fmt
-fmt:
-	$(foreach var,$(PROJECTS),$(MAKE) -C $(var) fmt || exit 1;)
+# Corrects spelling errors
+.PHONY: misspell
+misspell:
+	go get github.com/client9/misspell
+	$(FIND) -name '*'  -exec misspell -w {} \;
 
-.PHONY: simplify
-simplify:
-	$(foreach var,$(PROJECTS),$(MAKE) -C $(var) simplify || exit 1;)
+.PHONY: fmt
+fmt: python-env
+	$(foreach var,$(PROJECTS),$(MAKE) -C $(var) fmt || exit 1;)
+	# Cleans also python files which are not part of the beats
+	. $(PYTHON_ENV)/bin/activate && $(FIND) . -name *.py -exec autopep8 --in-place --max-line-length 120  {} \;
+
+.PHONY: lint
+lint:
+	@go get $(GOLINT_REPO) $(REVIEWDOG_REPO)
+	$(REVIEWDOG) $(REVIEWDOG_OPTIONS)
 
 # Collects all dashboards and generates dashboard folder for https://github.com/elastic/beats-dashboards/tree/master/dashboards
 .PHONY: beats-dashboards
@@ -79,7 +99,7 @@ beats-dashboards:
 # Builds the documents for each beat
 .PHONY: docs
 docs:
-	sh libbeat/scripts/build_docs.sh ${PROJECTS}
+	sh libbeat/scripts/build_docs.sh $(PROJECTS)
 
 .PHONY: package
 package: update beats-dashboards
@@ -88,7 +108,7 @@ package: update beats-dashboards
 	# build the dashboards package
 	echo "Start building the dashboards package"
 	mkdir -p build/upload/
-	BUILD_DIR=${shell pwd}/build SNAPSHOT=$(SNAPSHOT) $(MAKE) -C dev-tools/packer package-dashboards ${shell pwd}/build/upload/build_id.txt
+	BUILD_DIR=$(CURDIR)/build SNAPSHOT=$(SNAPSHOT) $(MAKE) -C dev-tools/packer package-dashboards $(CURDIR)/build/upload/build_id.txt
 	mv build/upload build/dashboards-upload
 
 	# Copy build files over to top build directory
@@ -96,7 +116,7 @@ package: update beats-dashboards
 	$(foreach var,$(BEATS),cp -r $(var)/build/upload/ build/upload/$(var)  || exit 1;)
 	cp -r build/dashboards-upload build/upload/dashboards
 	# Run tests on the generated packages.
-	go test ./dev-tools/package_test.go -files "${shell pwd}/build/upload/*/*"
+	go test ./dev-tools/package_test.go -files "$(CURDIR)/build/upload/*/*"
 
 # Upload nightly builds to S3
 .PHONY: upload-nightlies-s3
@@ -116,5 +136,11 @@ upload-release:
 	aws s3 cp --recursive --acl public-read build/upload s3://download.elasticsearch.org/beats/
 
 .PHONY: notice
-notice:
-	python dev-tools/generate_notice.py .
+notice: python-env
+	@. $(PYTHON_ENV)/bin/activate && python dev-tools/generate_notice.py .
+
+# Sets up the virtual python environment
+.PHONY: python-env
+python-env:
+	@test -d $(PYTHON_ENV) || virtualenv $(VIRTUALENV_PARAMS) $(PYTHON_ENV)
+	@. $(PYTHON_ENV)/bin/activate && pip install -q --upgrade pip autopep8 six

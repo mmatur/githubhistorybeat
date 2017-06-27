@@ -3,7 +3,7 @@
 # Name can be overwritten, as Metricbeat is also a library
 BEAT_NAME?=metricbeat
 BEAT_DESCRIPTION?=Metricbeat sends metrics to Elasticsearch.
-SYSTEM_TESTS=true
+SYSTEM_TESTS?=true
 TEST_ENVIRONMENT?=true
 GOPACKAGES=$(shell go list ${BEAT_PATH}/... | grep -v /vendor/)
 ES_BEATS?=..
@@ -18,6 +18,13 @@ GOX_FLAGS=-arch="amd64 386 arm ppc64 ppc64le"
 
 
 include ${ES_BEATS}/libbeat/scripts/Makefile
+
+.PHONY: clean
+clean::
+	# Clean generated dashbord directories
+	rm -rf _meta/kibana/dashboard _meta/kibana/search _meta/kibana/visualization
+	# Clean module docs
+	rm -rf docs/modules
 
 # Collects all module dashboards
 .PHONY: kibana
@@ -45,9 +52,10 @@ collect-docs: python-env
 .PHONY: configs
 configs: python-env
 	cat ${ES_BEATS}/metricbeat/_meta/common.yml > _meta/beat.yml
-	. ${PYTHON_ENV}/bin/activate; python ${ES_BEATS}/metricbeat/scripts/config_collector.py --beat ${BEAT_NAME} $(PWD) >> _meta/beat.yml
+	. ${PYTHON_ENV}/bin/activate; python ${ES_BEATS}/script/config_collector.py --beat ${BEAT_NAME} $(PWD) >> _meta/beat.yml
+	cat ${ES_BEATS}/metricbeat/_meta/setup.yml >> _meta/beat.yml
 	cat ${ES_BEATS}/metricbeat/_meta/common.full.yml > _meta/beat.full.yml
-	. ${PYTHON_ENV}/bin/activate; python ${ES_BEATS}/metricbeat/scripts/config_collector.py --beat ${BEAT_NAME} --full $(PWD) >> _meta/beat.full.yml
+	. ${PYTHON_ENV}/bin/activate; python ${ES_BEATS}/script/config_collector.py --beat ${BEAT_NAME} --full $(PWD) >> _meta/beat.full.yml
 
 # Generates imports for all modules and metricsets
 .PHONY: imports
@@ -65,6 +73,7 @@ ifeq ($(BEAT_NAME), metricbeat)
 	sed -i.bk 's/- load/#- load/' $(PREFIX)/metricbeat-win.full.yml
 	rm $(PREFIX)/metricbeat-win.full.yml.bk
 endif
+
 # Runs all collection steps and updates afterwards
 .PHONY: collect
 collect: fields collect-docs configs kibana imports
@@ -80,3 +89,14 @@ create-metricset:
 generate-json: build-image
 	 ${DOCKER_COMPOSE} run beat go test -tags=integration github.com/elastic/beats/metricbeat/module/... -data
 
+.PHONY: run-module
+run-module: ## @testing Runs the given module with exposing the port. Needs $MODULE and $PORT as param
+run-module:
+	${DOCKER_COMPOSE} build ${MODULE}
+	${DOCKER_COMPOSE} run -p ${PORT}:${PORT} ${MODULE}
+
+.PHONY: test-module
+test-module: ## @testing Tests the given module. Needs $MODULE as param an run-module must be started first.
+test-module: python-env
+	go test -tags=integration ${BEAT_PATH}/module/${MODULE}/... -v
+	. ${PYTHON_ENV}/bin/activate && INTEGRATION_TESTS=1 nosetests tests/system/test_${MODULE}.py

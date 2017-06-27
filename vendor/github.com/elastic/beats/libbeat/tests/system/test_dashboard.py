@@ -5,7 +5,7 @@ import os
 import subprocess
 import unittest
 import re
-from nose.plugins.skip import Skip, SkipTest
+from nose.plugins.skip import SkipTest
 
 
 INTEGRATION_TESTS = os.environ.get('INTEGRATION_TESTS', False)
@@ -20,14 +20,12 @@ class Test(BaseTest):
         """
         Test loading dashboards for all beats
         """
-        beats = ["metricbeat", "packetbeat", "filebeat", "winlogbeat"]
-
-        for beat in beats:
-            command = "go run ../../dashboards/import_dashboards.go -es http://" + \
+        for beat in self.beats:
+            command = "go run ../../../dev-tools/cmd/import_dashboards/import_dashboards.go -es http://" + \
                 self.get_elasticsearch_host() + " -dir ../../../" + beat + "/_meta/kibana"
 
             if os.name == "nt":
-                command = "go run ..\..\dashboards\import_dashboards.go -es http:\\" + \
+                command = "go run ..\..\..\dev_tools\import_dashboards\import_dashboards.go -es http:\\" + \
                     self.get_elasticsearch_host() + " -dir ..\..\..\\" + beat + "\_meta\kibana"
 
             print(command)
@@ -51,9 +49,7 @@ class Test(BaseTest):
         # In addition, this test should not write to the beats directory but to a
         # temporary directory and check the files there.
 
-        beats = ["metricbeat", "packetbeat", "filebeat", "winlogbeat"]
-
-        for beat in beats:
+        for beat in self.beats:
             if os.name == "nt":
                 path = "..\..\..\\" + beat + "\etc\kibana"
             else:

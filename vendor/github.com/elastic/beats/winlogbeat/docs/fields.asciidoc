@@ -16,6 +16,7 @@ grouped in the following categories:
 * <<exported-fields-cloud>>
 * <<exported-fields-common>>
 * <<exported-fields-eventlog>>
+* <<exported-fields-kubernetes-processor>>
 
 --
 [[exported-fields-beat]]
@@ -35,6 +36,12 @@ The name of the Beat sending the log messages. If the Beat name is set in the co
 === beat.hostname
 
 The hostname as returned by the operating system on which the Beat is running.
+
+
+[float]
+=== beat.timezone
+
+The timezone as returned by the operating system on which the Beat is running.
 
 
 [float]
@@ -66,9 +73,40 @@ Arbitrary tags that can be set per Beat and per transaction type.
 [float]
 === fields
 
-type: dict
+type: object
 
 Contains user configurable fields.
+
+
+[float]
+== error Fields
+
+Error fields containing additional info in case of errors.
+
+
+
+[float]
+=== error.message
+
+type: text
+
+Error message.
+
+
+[float]
+=== error.code
+
+type: long
+
+Error code.
+
+
+[float]
+=== error.type
+
+type: keyword
+
+Error type.
 
 
 [[exported-fields-cloud]]
@@ -90,6 +128,12 @@ Name of the cloud provider. Possible values are ec2, gce, or digitalocean.
 === meta.cloud.instance_id
 
 Instance ID of the host machine.
+
+
+[float]
+=== meta.cloud.instance_name
+
+Instance name of the host machine.
 
 
 [float]
@@ -168,11 +212,11 @@ The name of the computer that generated the record. When using Windows event for
 [float]
 === event_data
 
-type: dict
+type: object
 
 required: False
 
-The event-specific data. This field is mutually exclusive with `user_data`. If you are capturing event data on versions prior to Windows Vista, the parameters in `event_data` are named `param1`, `param2`, and so on, because event log parameters are unnamed in earlier versions of Windows. 
+The event-specific data. This field is mutually exclusive with `user_data`. If you are capturing event data on versions prior to Windows Vista, the parameters in `event_data` are named `param1`, `param2`, and so on, because event log parameters are unnamed in earlier versions of Windows.
 
 
 [float]
@@ -318,7 +362,7 @@ The thread_id identifies the thread that generated the event.
 [float]
 === user_data
 
-type: dict
+type: object
 
 required: False
 
@@ -388,5 +432,62 @@ required: False
 The raw XML representation of the event obtained from Windows. This field is only available on operating systems supporting the Windows Event Log API (Microsoft Windows Vista and newer). This field is not included by default and must be enabled by setting `include_xml: true` as a configuration option for an individual event log.
 
 The XML representation of the event is useful for troubleshooting purposes. The data in the fields reported by Winlogbeat can be compared to the data in the XML to diagnose problems.
+
+
+[[exported-fields-kubernetes-processor]]
+== kubernetes Fields
+
+beta[]
+Kubernetes metadata added by the kubernetes processor
+
+
+
+
+[float]
+=== kubernetes.pod.name
+
+type: keyword
+
+Kubernetes pod name
+
+
+[float]
+=== kubernetes.namespace
+
+type: keyword
+
+Kubernetes namespace
+
+
+[float]
+=== kubernetes.labels
+
+type: object
+
+Kubernetes labels map
+
+
+[float]
+=== kubernetes.annotations
+
+type: object
+
+Kubernetes annotations map
+
+
+[float]
+=== kubernetes.container.name
+
+type: keyword
+
+Kubernetes container name
+
+
+[float]
+=== kubernetes.container.image
+
+type: keyword
+
+Kubernetes container image
 
 

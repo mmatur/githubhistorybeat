@@ -210,7 +210,6 @@ func partTestSimple(N int, makeKey bool) partTestScenario {
 
 			event := common.MapStr{
 				"@timestamp": common.Time(ts),
-				"type":       "test",
 				"message":    randString(20),
 			}
 
@@ -220,7 +219,7 @@ func partTestSimple(N int, makeKey bool) partTestScenario {
 			}
 
 			msg := &message{partition: -1}
-			msg.data = outputs.Data{event, nil}
+			msg.data = outputs.Data{Event: event, Values: nil}
 			msg.topic = "test"
 			if makeKey {
 				msg.key = randASCIIBytes(10)
@@ -263,7 +262,6 @@ func partTestHashInvariant(N int) partTestScenario {
 
 			event := common.MapStr{
 				"@timestamp": common.Time(ts),
-				"type":       "test",
 				"message":    randString(20),
 			}
 
@@ -273,7 +271,7 @@ func partTestHashInvariant(N int) partTestScenario {
 			}
 
 			msg := &message{partition: -1}
-			msg.data = outputs.Data{event, nil}
+			msg.data = outputs.Data{Event: event, Values: nil}
 			msg.topic = "test"
 			msg.key = randASCIIBytes(10)
 			msg.value = jsonEvent
