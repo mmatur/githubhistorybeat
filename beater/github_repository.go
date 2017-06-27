@@ -1,10 +1,10 @@
 package beater
 
 import (
-	"github.com/google/go-github/github"
 	"context"
-	"golang.org/x/oauth2"
 	"github.com/elastic/beats/libbeat/logp"
+	"github.com/google/go-github/github"
+	"golang.org/x/oauth2"
 	"time"
 )
 
@@ -52,11 +52,11 @@ func CreateGithubClient(token string) *github.Client {
 	return github.NewClient(tc)
 }
 
-func (gr *GithubRepository) GetRoundedCreateAt(timeInterval time.Duration) (time.Time) {
+func (gr *GithubRepository) GetRoundedCreateAt(timeInterval time.Duration) time.Time {
 	return gr.CreatedAt.Round(timeInterval)
 }
 
-func (gr *GithubRepository) FetchRepositoryInfo() (error) {
+func (gr *GithubRepository) FetchRepositoryInfo() error {
 	logp.Info("Start fetching repository info for %s/%s", gr.Owner, gr.Name)
 	repository, _, err := gr.Client.Repositories.Get(gr.Context, gr.Owner, gr.Name)
 	if err != nil {

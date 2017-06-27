@@ -7,14 +7,14 @@ import "time"
 
 type Config struct {
 	Repositories []Repository `config:"repositories"`
-	Token        string `config:"token"`
+	Token        string       `config:"token"`
 }
 
 type Repository struct {
-	Owner        string `config:"owner"`
-	Name         string `config:"name"`
-	DocumentType string `config:"document_type"`
-	TimeInterval    time.Duration `config:"time_interval"`
+	Owner        string        `config:"owner"`
+	Name         string        `config:"name"`
+	DocumentType string        `config:"document_type"`
+	TimeInterval time.Duration `config:"time_interval"`
 }
 
 var DefaultConfig = Config{

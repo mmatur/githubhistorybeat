@@ -1,0 +1,15 @@
+package: github.com/mmatur/githubhistorybeat
+homepage: https://github.com/mmatur/githubhistorybeat
+license: Apache-2.0
+owners:
+- name: Michael MATUR
+  homepage: https://github.com/mmatur
+import:
+- package: github.com/elastic/beats
+  version: v5.4.1
+  subpackages:
+  - libbeat/beat
+  - libbeat/cfgfile
+  - libbeat/logp
+  - libbeat/publisher
+- package: github.com/google/go-github

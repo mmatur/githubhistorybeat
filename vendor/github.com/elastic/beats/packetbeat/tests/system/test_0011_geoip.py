@@ -1,8 +1,5 @@
-import os
-import unittest
-import sys
-
 from packetbeat import BaseTest
+import os
 
 """
 Tests for reading the geoip files.
@@ -46,7 +43,6 @@ class Test(BaseTest):
         assert o["real_ip"] == "89.247.39.104"
         assert o["client_location"] == "52.528503, 13.410904"
 
-    @unittest.skipIf(sys.platform.startswith("win"), "requires unix for symlinks")
     def test_geoip_symlink(self):
         """
         Should be able to follow symlinks to GeoIP libs.

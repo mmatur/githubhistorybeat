@@ -11,11 +11,11 @@ type Event struct {
 	FullName          string `json:"github_repository_full_name"`
 	Owner             string `json:"github_repository_owner"`
 	Name              string `json:"github_repository_name"`
-	StargazersCount   int `json:"github_repository_stargazers_count"`
-	PullRequestsCount int `json:"github_repository_pull_requests_count"`
-	OpenIssuesCount   int `json:"github_repository_open_issues_count"`
-	ForksCount        int `json:"github_repository_forks_count"`
-	ReleasesCount     int `json:"github_repository_releases_count"`
+	StargazersCount   int    `json:"github_repository_stargazers_count"`
+	PullRequestsCount int    `json:"github_repository_pull_requests_count"`
+	OpenIssuesCount   int    `json:"github_repository_open_issues_count"`
+	ForksCount        int    `json:"github_repository_forks_count"`
+	ReleasesCount     int    `json:"github_repository_releases_count"`
 }
 
 func (h *Event) ToMapStr() common.MapStr {

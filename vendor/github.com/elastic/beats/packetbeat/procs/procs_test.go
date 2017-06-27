@@ -94,7 +94,7 @@ func TestFindPidsByCmdlineGrep(t *testing.T) {
 	}
 
 	// Create fake proc file system
-	pathPrefix, err := ioutil.TempDir("", "find-pids")
+	pathPrefix, err := ioutil.TempDir("/tmp", "")
 	if err != nil {
 		t.Error("TempDir failed:", err)
 		return
@@ -129,7 +129,7 @@ func TestRefreshPids(t *testing.T) {
 	}
 
 	// Create fake proc file system
-	pathPrefix, err := ioutil.TempDir("", "refresh-pids")
+	pathPrefix, err := ioutil.TempDir("/tmp", "")
 	if err != nil {
 		t.Error("TempDir failed:", err)
 		return
@@ -187,7 +187,7 @@ func TestFindSocketsOfPid(t *testing.T) {
 	}
 
 	// Create fake proc file system
-	pathPrefix, err := ioutil.TempDir("", "find-sockets")
+	pathPrefix, err := ioutil.TempDir("/tmp", "")
 	if err != nil {
 		t.Error("TempDir failed:", err)
 		return

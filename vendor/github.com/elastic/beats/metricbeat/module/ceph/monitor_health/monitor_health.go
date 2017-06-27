@@ -1,6 +1,8 @@
 package monitor_health
 
 import (
+	"fmt"
+
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/logp"
 	"github.com/elastic/beats/metricbeat/helper"
@@ -44,10 +46,15 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 }
 
 func (m *MetricSet) Fetch() ([]common.MapStr, error) {
+
 	content, err := m.HTTP.FetchContent()
 	if err != nil {
 		return nil, err
 	}
 
+	fmt.Printf("%+v", string(content))
+	fmt.Printf("%+v", eventsMapping(content))
+
 	return eventsMapping(content), nil
+
 }

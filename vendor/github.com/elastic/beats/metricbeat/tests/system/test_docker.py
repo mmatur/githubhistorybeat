@@ -21,7 +21,10 @@ class Test(metricbeat.BaseTest):
         proc = self.start_beat()
         self.wait_until(lambda: self.output_lines() > 0, max_timeout=20)
         proc.check_kill_and_wait()
-        self.assert_no_logged_warnings()
+
+        # Ensure no errors or warnings exist in the log.
+        log = self.get_log()
+        self.assertNotRegexpMatches(log.replace("WARN BETA", ""), "ERR|WARN")
 
         output = self.read_output_json()
         evt = output[0]
@@ -44,7 +47,10 @@ class Test(metricbeat.BaseTest):
         proc = self.start_beat()
         self.wait_until(lambda: self.output_lines() > 0, max_timeout=30)
         proc.check_kill_and_wait()
-        self.assert_no_logged_warnings()
+
+        # Ensure no errors or warnings exist in the log.
+        log = self.get_log()
+        self.assertNotRegexpMatches(log.replace("WARN BETA", ""), "ERR|WARN")
 
         output = self.read_output_json()
         evt = output[0]
@@ -71,7 +77,10 @@ class Test(metricbeat.BaseTest):
         proc = self.start_beat()
         self.wait_until(lambda: self.output_lines() > 0, max_timeout=30)
         proc.check_kill_and_wait()
-        self.assert_no_logged_warnings()
+
+        # Ensure no errors or warnings exist in the log.
+        log = self.get_log()
+        self.assertNotRegexpMatches(log.replace("WARN BETA", ""), "ERR|WARN")
 
         output = self.read_output_json()
         evt = output[0]
@@ -95,7 +104,10 @@ class Test(metricbeat.BaseTest):
         proc = self.start_beat()
         self.wait_until(lambda: self.output_lines() > 0, max_timeout=30)
         proc.check_kill_and_wait()
-        self.assert_no_logged_warnings()
+
+        # Ensure no errors or warnings exist in the log.
+        log = self.get_log()
+        self.assertNotRegexpMatches(log.replace("WARN BETA", ""), "ERR|WARN")
 
         output = self.read_output_json()
         evt = output[0]
@@ -117,7 +129,10 @@ class Test(metricbeat.BaseTest):
         proc = self.start_beat()
         self.wait_until(lambda: self.output_lines() > 0, max_timeout=30)
         proc.check_kill_and_wait()
-        self.assert_no_logged_warnings()
+
+        # Ensure no errors or warnings exist in the log.
+        log = self.get_log()
+        self.assertNotRegexpMatches(log.replace("WARN BETA", ""), "ERR|WARN")
 
         output = self.read_output_json()
         evt = output[0]
@@ -140,7 +155,10 @@ class Test(metricbeat.BaseTest):
         proc = self.start_beat()
         self.wait_until(lambda: self.output_lines() > 0, max_timeout=30)
         proc.check_kill_and_wait()
-        self.assert_no_logged_warnings()
+
+        # Ensure no errors or warnings exist in the log.
+        log = self.get_log()
+        self.assertNotRegexpMatches(log.replace("WARN BETA", ""), "ERR|WARN")
 
         output = self.read_output_json()
         evt = output[0]
@@ -163,7 +181,10 @@ class Test(metricbeat.BaseTest):
         proc = self.start_beat()
         self.wait_until(lambda: self.output_lines() > 0, max_timeout=20)
         proc.check_kill_and_wait()
-        self.assert_no_logged_warnings()
+
+        # Ensure no errors or warnings exist in the log.
+        log = self.get_log()
+        self.assertNotRegexpMatches(log.replace("WARN BETA", ""), "ERR|WARN")
 
         output = self.read_output_json()
         evt = output[0]
@@ -186,7 +207,10 @@ class Test(metricbeat.BaseTest):
         proc = self.start_beat()
         self.wait_until(lambda: self.output_lines() > 0, max_timeout=20)
         proc.check_kill_and_wait()
-        self.assert_no_logged_warnings()
+
+        # Ensure no errors or warnings exist in the log.
+        log = self.get_log()
+        self.assertNotRegexpMatches(log.replace("WARN BETA", ""), "ERR|WARN")
 
         output = self.read_output_json()
         evt = output[0]

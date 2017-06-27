@@ -56,10 +56,9 @@ func (bt *GithubHistoryBeat) Run(b *beat.Beat) error {
 				PullRequestsCount: 0,
 				ForksCount:        0,
 				ReleasesCount:     0,
-
 			}
 			date = date.Add(cr.TimeInterval)
-			if (date.After(time.Now().Round(cr.TimeInterval))) {
+			if date.After(time.Now().Round(cr.TimeInterval)) {
 				break
 			}
 		}

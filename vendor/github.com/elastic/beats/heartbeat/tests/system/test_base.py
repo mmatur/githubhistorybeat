@@ -1,9 +1,10 @@
-import os
-
 from heartbeat import BaseTest
+
+import os
 
 
 class Test(BaseTest):
+
     def test_base(self):
         """
         Basic test with exiting Heartbeat normally
@@ -14,4 +15,5 @@ class Test(BaseTest):
 
         heartbeat_proc = self.start_beat()
         self.wait_until(lambda: self.log_contains("heartbeat is running"))
-        heartbeat_proc.check_kill_and_wait()
+        exit_code = heartbeat_proc.kill_and_wait()
+        assert exit_code == 0
