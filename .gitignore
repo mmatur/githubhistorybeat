@@ -1,0 +1,7 @@
+/.idea
+/build
+
+.DS_Store
+/githubhistorybeat
+/githubhistorybeat.test
+*.pyc

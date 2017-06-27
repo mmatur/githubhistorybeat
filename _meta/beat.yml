@@ -1,0 +1,9 @@
+################### Githubhistorybeat Configuration Example #########################
+
+############################# Githubhistorybeat ######################################
+
+githubhistorybeat:
+  token: # Github Token
+  repositories:
+    - owner: containous
+      name: traefik
