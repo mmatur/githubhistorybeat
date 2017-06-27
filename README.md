@@ -9,7 +9,7 @@ Ensure that this folder is at the following location:
 
 ### Requirements
 
-* [Golang](https://golang.org/dl/) 1.7.4
+* [Golang](https://golang.org/dl/) 1.8.3
 
 ### Init Project
 To get running with Githubhistorybeat and also install the
