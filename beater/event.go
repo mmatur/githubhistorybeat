@@ -25,7 +25,7 @@ func (h *Event) ToMapStr() common.MapStr {
 		"@timestamp":                            common.Time(h.ReadTime),
 		"type":                                  h.DocumentType,
 		"document_type":                         h.DocumentType,
-		"github_repository_full_name":           h.FullName,
+		"github_repository_fullname":            h.FullName,
 		"github_repository_owner":               h.Owner,
 		"github_repository_name":                h.Name,
 		"github_repository_stargazers_count":    h.StargazersCount,
