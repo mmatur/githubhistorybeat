@@ -7,3 +7,4 @@ githubhistorybeat:
   repositories:
     - owner: containous
       name: traefik
+      time_interval: 24h

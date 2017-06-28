@@ -42,6 +42,10 @@ func (bt *GithubHistoryBeat) Run(b *beat.Beat) error {
 	for _, cr := range bt.config.Repositories {
 		times := make(map[time.Time]*Event)
 
+		if cr.TimeInterval == 0*time.Second {
+			cr.TimeInterval = 24 * time.Hour
+		}
+
 		repo := NewGithubRepository(bt, cr.Owner, cr.Name)
 
 		date := repo.GetRoundedCreateAt(cr.TimeInterval)
