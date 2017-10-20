@@ -5,9 +5,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
+	"github.com/elastic/beats/libbeat/beat"
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/logp"
-	"github.com/stretchr/testify/assert"
 )
 
 func initECSTestServer() *httptest.Server {
@@ -45,12 +47,12 @@ func TestRetrieveAlibabaCloudMetadata(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	p, err := newCloudMetadata(*config)
+	p, err := newCloudMetadata(config)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	actual, err := p.Run(common.MapStr{})
+	actual, err := p.Run(&beat.Event{Fields: common.MapStr{}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,5 +67,5 @@ func TestRetrieveAlibabaCloudMetadata(t *testing.T) {
 			},
 		},
 	}
-	assert.Equal(t, expected, actual)
+	assert.Equal(t, expected, actual.Fields)
 }

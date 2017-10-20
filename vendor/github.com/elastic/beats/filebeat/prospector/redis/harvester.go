@@ -2,17 +2,18 @@ package redis
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
-	"github.com/elastic/beats/filebeat/util"
+	rd "github.com/garyburd/redigo/redis"
+	"github.com/satori/go.uuid"
+
+	"github.com/elastic/beats/libbeat/beat"
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/logp"
 
-	"strings"
-
 	"github.com/elastic/beats/filebeat/harvester"
-	rd "github.com/garyburd/redigo/redis"
-	"github.com/satori/go.uuid"
+	"github.com/elastic/beats/filebeat/util"
 )
 
 // Harvester contains all redis harvester data
@@ -125,17 +126,14 @@ func (h *Harvester) Run() error {
 
 		}
 
-		data.Event = common.MapStr{
-			"@timestamp": common.Time(time.Unix(log.timestamp, 0).UTC()),
-			"message":    strings.Join(args, " "),
-			"redis": common.MapStr{
-				"slowlog": subEvent,
-			},
-			"beat": common.MapStr{
-				"read_timestamp": common.Time(time.Now()),
-			},
-			"prospector": common.MapStr{
-				"type": "redis",
+		data.Event = beat.Event{
+			Timestamp: time.Unix(log.timestamp, 0).UTC(),
+			Fields: common.MapStr{
+				"message": strings.Join(args, " "),
+				"redis": common.MapStr{
+					"slowlog": subEvent,
+				},
+				"read_timestamp": common.Time(time.Now().UTC()),
 			},
 		}
 

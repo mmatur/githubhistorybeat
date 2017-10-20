@@ -7,13 +7,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	s "github.com/elastic/beats/metricbeat/schema"
+	s "github.com/elastic/beats/libbeat/common/schema"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestStats(t *testing.T) {
-
 	files, err := filepath.Glob("./_meta/test/node_stats.*.json")
 	assert.NoError(t, err)
 

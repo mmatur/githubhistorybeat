@@ -4,14 +4,13 @@ import (
 	"strings"
 
 	"github.com/elastic/beats/libbeat/common"
+	s "github.com/elastic/beats/libbeat/common/schema"
+	c "github.com/elastic/beats/libbeat/common/schema/mapstrstr"
 	"github.com/elastic/beats/metricbeat/module/redis"
-	s "github.com/elastic/beats/metricbeat/schema"
-	c "github.com/elastic/beats/metricbeat/schema/mapstrstr"
 )
 
 // Map data to MapStr
 func eventsMapping(info map[string]string) []common.MapStr {
-
 	events := []common.MapStr{}
 	for key, space := range getKeyspaceStats(info) {
 		space["id"] = key

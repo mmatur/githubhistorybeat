@@ -3,16 +3,13 @@ package main
 import (
 	"os"
 
-	"github.com/elastic/beats/libbeat/beat"
-
-	"github.com/mmatur/githubhistorybeat/beater"
+	"github.com/mmatur/githubhistorybeat/cmd"
 )
 
 var name = "githubhistorybeat"
 
 func main() {
-	err := beat.Run(name, "", beater.New)
-	if err != nil {
+	if err := cmd.RootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
 }

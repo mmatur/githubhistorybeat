@@ -6,16 +6,19 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/elastic/beats/libbeat/common"
-	"github.com/elastic/beats/libbeat/logp"
-	"github.com/elastic/beats/metricbeat/mb"
 	"github.com/pkg/errors"
+
+	"github.com/elastic/beats/libbeat/common"
+	"github.com/elastic/beats/libbeat/common/cfgwarn"
+	"github.com/elastic/beats/metricbeat/mb"
 )
 
 type CounterConfig struct {
-	Alias  string `config:"alias" validate:"required"`
-	Query  string `config:"query" validate:"required"`
-	Format string `config:"format"`
+	InstanceLabel    string `config:"instance_label" validate:"required"`
+	InstanceName     string `config:"instance_name"`
+	MeasurementLabel string `config:"measurement_label" validate:"required"`
+	Query            string `config:"query" validate:"required"`
+	Format           string `config:"format"`
 }
 
 func init() {
@@ -31,7 +34,7 @@ type MetricSet struct {
 
 // New create a new instance of the MetricSet.
 func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
-	logp.Beta("The perfmon metricset is beta")
+	cfgwarn.Beta("The perfmon metricset is beta")
 
 	config := struct {
 		CounterConfig []CounterConfig `config:"perfmon.counters" validate:"required"`
@@ -48,7 +51,7 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 			value.Format = "float"
 		case "float", "long":
 		default:
-			err := fmt.Errorf("format '%s' for counter '%s' are not valid", value.Format, value.Alias)
+			err := fmt.Errorf("format '%s' for counter '%s' are not valid", value.Format, value.InstanceLabel)
 			return nil, errors.Wrap(err, "initialization failed")
 		}
 
@@ -65,7 +68,7 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 	}, nil
 }
 
-func (m *MetricSet) Fetch() (common.MapStr, error) {
+func (m *MetricSet) Fetch() ([]common.MapStr, error) {
 	data, err := m.reader.Read()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed reading counters")

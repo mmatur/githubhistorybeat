@@ -5,37 +5,42 @@ import (
 	"sync"
 
 	"github.com/elastic/beats/filebeat/channel"
+	"github.com/elastic/beats/filebeat/fileset"
 	"github.com/elastic/beats/filebeat/input/file"
 	"github.com/elastic/beats/filebeat/prospector"
 	"github.com/elastic/beats/filebeat/registrar"
 	"github.com/elastic/beats/libbeat/cfgfile"
 	"github.com/elastic/beats/libbeat/common"
+	"github.com/elastic/beats/libbeat/common/cfgwarn"
 	"github.com/elastic/beats/libbeat/logp"
 )
 
 type Crawler struct {
-	prospectors       map[uint64]*prospector.Prospector
-	prospectorConfigs []*common.Config
-	out               channel.Outleter
-	wg                sync.WaitGroup
-	reloader          *cfgfile.Reloader
-	once              bool
-	beatDone          chan struct{}
+	prospectors         map[uint64]*prospector.Prospector
+	prospectorConfigs   []*common.Config
+	out                 channel.OutleterFactory
+	wg                  sync.WaitGroup
+	modulesReloader     *cfgfile.Reloader
+	prospectorsReloader *cfgfile.Reloader
+	once                bool
+	beatVersion         string
+	beatDone            chan struct{}
 }
 
-func New(out channel.Outleter, prospectorConfigs []*common.Config, beatDone chan struct{}, once bool) (*Crawler, error) {
-
+func New(out channel.OutleterFactory, prospectorConfigs []*common.Config, beatVersion string, beatDone chan struct{}, once bool) (*Crawler, error) {
 	return &Crawler{
 		out:               out,
 		prospectors:       map[uint64]*prospector.Prospector{},
 		prospectorConfigs: prospectorConfigs,
 		once:              once,
+		beatVersion:       beatVersion,
 		beatDone:          beatDone,
 	}, nil
 }
 
 // Start starts the crawler with all prospectors
-func (c *Crawler) Start(r *registrar.Registrar, configProspectors *common.Config) error {
+func (c *Crawler) Start(r *registrar.Registrar, configProspectors *common.Config,
+	configModules *common.Config, pipelineLoaderFactory fileset.PipelineLoaderFactory) error {
 
 	logp.Info("Loading Prospectors: %v", len(c.prospectorConfigs))
 
@@ -48,12 +53,30 @@ func (c *Crawler) Start(r *registrar.Registrar, configProspectors *common.Config
 	}
 
 	if configProspectors.Enabled() {
-		logp.Beta("Loading separate prospectors is enabled.")
+		cfgwarn.Beta("Loading separate prospectors is enabled.")
 
-		c.reloader = cfgfile.NewReloader(configProspectors)
-		factory := prospector.NewFactory(c.out, r, c.beatDone)
+		c.prospectorsReloader = cfgfile.NewReloader(configProspectors)
+		prospectorsFactory := prospector.NewFactory(c.out, r, c.beatDone)
+		if err := c.prospectorsReloader.Check(prospectorsFactory); err != nil {
+			return err
+		}
+
 		go func() {
-			c.reloader.Run(factory)
+			c.prospectorsReloader.Run(prospectorsFactory)
+		}()
+	}
+
+	if configModules.Enabled() {
+		cfgwarn.Beta("Loading separate modules is enabled.")
+
+		c.modulesReloader = cfgfile.NewReloader(configModules)
+		modulesFactory := fileset.NewFactory(c.out, r, c.beatVersion, pipelineLoaderFactory, c.beatDone)
+		if err := c.modulesReloader.Check(modulesFactory); err != nil {
+			return err
+		}
+
+		go func() {
+			c.modulesReloader.Run(modulesFactory)
 		}()
 	}
 
@@ -100,8 +123,12 @@ func (c *Crawler) Stop() {
 		asyncWaitStop(p.Stop)
 	}
 
-	if c.reloader != nil {
-		asyncWaitStop(c.reloader.Stop)
+	if c.prospectorsReloader != nil {
+		asyncWaitStop(c.prospectorsReloader.Stop)
+	}
+
+	if c.modulesReloader != nil {
+		asyncWaitStop(c.modulesReloader.Stop)
 	}
 
 	c.WaitForCompletion()

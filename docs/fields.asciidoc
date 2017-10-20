@@ -14,6 +14,7 @@ grouped in the following categories:
 
 * <<exported-fields-beat>>
 * <<exported-fields-cloud>>
+* <<exported-fields-docker-processor>>
 * <<exported-fields-githubhistorybeat>>
 * <<exported-fields-kubernetes-processor>>
 
@@ -165,6 +166,47 @@ Name of the project in Google Cloud.
 Region in which this host is running.
 
 
+[[exported-fields-docker-processor]]
+== docker Fields
+
+beta[]
+Docker stats collected from Docker.
+
+
+
+
+[float]
+=== docker.container.id
+
+type: keyword
+
+Unique container id.
+
+
+[float]
+=== docker.container.image
+
+type: keyword
+
+Name of the image the container was built on.
+
+
+[float]
+=== docker.container.name
+
+type: keyword
+
+Container name.
+
+
+[float]
+=== docker.container.labels
+
+type: object
+
+Image labels.
+
+
 [[exported-fields-githubhistorybeat]]
 == githubhistorybeat Fields
 
@@ -172,7 +214,7 @@ None
 
 
 [float]
-=== github_repository_fullname
+=== github.repository.fullname
 
 type: text
 
@@ -182,7 +224,7 @@ The full name of the repository
 
 
 [float]
-=== github_repository_owner
+=== github.repository.owner
 
 type: text
 
@@ -192,7 +234,7 @@ The owner of the repository
 
 
 [float]
-=== github_repository_name
+=== github.repository.name
 
 type: text
 
@@ -202,7 +244,7 @@ The name of the repository
 
 
 [float]
-=== github_repository_forks_count
+=== github.repository.forks_count
 
 type: long
 
@@ -212,7 +254,7 @@ The count of forks for the repository
 
 
 [float]
-=== github_repository_pull_requests_count
+=== github.repository.pull_requests_count
 
 type: long
 
@@ -222,7 +264,7 @@ The count of pull request for the repository
 
 
 [float]
-=== github_repository_open_issues_count
+=== github.repository.open_issues_count
 
 type: long
 
@@ -232,7 +274,7 @@ The count of open issues for the repository
 
 
 [float]
-=== github_repository_stargazers_count
+=== github.repository.stargazers_count
 
 type: long
 
@@ -242,7 +284,7 @@ The count of stargazers for the repository
 
 
 [float]
-=== github_repository_networks_count
+=== github.repository.networks_count
 
 type: long
 
@@ -252,7 +294,7 @@ The count of networks for the repository
 
 
 [float]
-=== github_repository_suscribers_count
+=== github.repository.suscribers_count
 
 type: long
 
@@ -262,7 +304,7 @@ The count of subscribers for the repository
 
 
 [float]
-=== github_repository_watchers_count
+=== github.repository.watchers_count
 
 type: long
 

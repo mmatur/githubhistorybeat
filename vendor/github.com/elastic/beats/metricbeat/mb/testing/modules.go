@@ -43,8 +43,6 @@ import (
 
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/metricbeat/mb"
-
-	"github.com/stretchr/testify/assert"
 )
 
 type TestModule struct {
@@ -74,28 +72,23 @@ func newMetricSet(t testing.TB, config interface{}) mb.MetricSet {
 	if err != nil {
 		t.Fatal(err)
 	}
-	m, err := mb.NewModules([]*common.Config{c}, mb.Registry)
+	m, metricsets, err := mb.NewModule(c, mb.Registry)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatal("failed to create new MetricSet", err)
 	}
-	if !assert.Len(t, m, 1) {
-		t.FailNow()
-	}
-
-	var metricSet mb.MetricSet
-	for _, v := range m {
-		if !assert.Len(t, v, 1) {
-			t.FailNow()
-		}
-
-		metricSet = v[0]
-		break
+	if m == nil {
+		t.Fatal("no module instantiated")
 	}
 
-	if !assert.NotNil(t, metricSet) {
-		t.FailNow()
+	if len(metricsets) != 1 {
+		t.Fatal("invalid number of metricsets instantiated")
 	}
-	return metricSet
+
+	metricset := metricsets[0]
+	if metricset == nil {
+		t.Fatal("metricset is nil")
+	}
+	return metricset
 }
 
 // NewEventFetcher instantiates a new EventFetcher using the given
@@ -124,6 +117,25 @@ func NewEventsFetcher(t testing.TB, config interface{}) mb.EventsFetcher {
 	}
 
 	return fetcher
+}
+
+func NewReportingMetricSet(t testing.TB, config interface{}) mb.ReportingMetricSet {
+	metricSet := newMetricSet(t, config)
+
+	reportingMetricSet, ok := metricSet.(mb.ReportingMetricSet)
+	if !ok {
+		t.Fatal("MetricSet does not implement ReportingMetricSet")
+	}
+
+	return reportingMetricSet
+}
+
+// ReportingFetch runs the given reporting metricset and returns all of the
+// events and errors that occur during that period.
+func ReportingFetch(metricSet mb.ReportingMetricSet) ([]common.MapStr, []error) {
+	r := &capturingReporter{}
+	metricSet.Fetch(r)
+	return r.events, r.errs
 }
 
 // NewPushMetricSet instantiates a new PushMetricSet using the given

@@ -9,7 +9,6 @@ import (
 	"github.com/elastic/beats/filebeat/util"
 	"github.com/elastic/beats/libbeat/common/match"
 
-	"github.com/elastic/beats/filebeat/channel"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -58,7 +57,6 @@ var matchTests = []struct {
 }
 
 func TestMatchFile(t *testing.T) {
-
 	for _, test := range matchTests {
 
 		p := Prospector{
@@ -128,7 +126,6 @@ var initStateTests = []struct {
 // TestInit checks that the correct states are in a prospector after the init phase
 // This means only the ones that match the glob and not exclude files
 func TestInit(t *testing.T) {
-
 	for _, test := range initStateTests {
 		p := Prospector{
 			config: config{
@@ -148,13 +145,10 @@ func TestInit(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, test.count, p.states.Count())
 	}
-
 }
 
 // TestOutlet is an empty outlet for testing
 type TestOutlet struct{}
 
-func (o TestOutlet) OnEvent(event *util.Data) bool       { return true }
-func (o TestOutlet) OnEventSignal(event *util.Data) bool { return true }
-func (o TestOutlet) SetSignal(signal <-chan struct{})    {}
-func (o TestOutlet) Copy() channel.Outleter              { return o }
+func (o TestOutlet) OnEvent(event *util.Data) bool { return true }
+func (o TestOutlet) Close() error                  { return nil }

@@ -5,7 +5,7 @@ import (
 	"net/url"
 
 	"github.com/elastic/beats/libbeat/common"
-	"github.com/elastic/beats/libbeat/logp"
+	"github.com/elastic/beats/libbeat/common/cfgwarn"
 	"github.com/elastic/beats/metricbeat/mb"
 
 	"github.com/pkg/errors"
@@ -29,7 +29,7 @@ type MetricSet struct {
 }
 
 func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
-	logp.Experimental("The vsphere host metricset is experimental")
+	cfgwarn.Experimental("The vsphere host metricset is experimental")
 
 	config := struct {
 		Username string `config:"username"`
@@ -116,7 +116,7 @@ func (m *MetricSet) Fetch() ([]common.MapStr, error) {
 				},
 				"memory": common.MapStr{
 					"used": common.MapStr{
-						"bytes": hs.Summary.QuickStats.OverallMemoryUsage * 1024 * 1024,
+						"bytes": (int64(hs.Summary.QuickStats.OverallMemoryUsage) * 1024 * 1024),
 					},
 					"total": common.MapStr{
 						"bytes": hs.Summary.Hardware.MemorySize,

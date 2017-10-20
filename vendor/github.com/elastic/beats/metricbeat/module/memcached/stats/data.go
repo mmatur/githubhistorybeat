@@ -1,8 +1,8 @@
 package stats
 
 import (
-	s "github.com/elastic/beats/metricbeat/schema"
-	c "github.com/elastic/beats/metricbeat/schema/mapstrstr"
+	s "github.com/elastic/beats/libbeat/common/schema"
+	c "github.com/elastic/beats/libbeat/common/schema/mapstrstr"
 )
 
 var (
@@ -21,8 +21,8 @@ var (
 			"misses": c.Int("get_misses"),
 		},
 		"cmd": s.Object{
-			"get": c.Int("cmd_set"),
-			"set": c.Int("cmd_get"),
+			"get": c.Int("cmd_get"),
+			"set": c.Int("cmd_set"),
 		},
 		"read": s.Object{
 			"bytes": c.Int("bytes_read"),

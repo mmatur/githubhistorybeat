@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 
 	"github.com/elastic/beats/libbeat/common"
+	s "github.com/elastic/beats/libbeat/common/schema"
+	c "github.com/elastic/beats/libbeat/common/schema/mapstriface"
 	"github.com/elastic/beats/libbeat/logp"
-	s "github.com/elastic/beats/metricbeat/schema"
-	c "github.com/elastic/beats/metricbeat/schema/mapstriface"
 )
 
 var (
@@ -130,7 +130,6 @@ var (
 )
 
 func eventsMapping(content []byte) ([]common.MapStr, error) {
-
 	var nodes []map[string]interface{}
 	err := json.Unmarshal(content, &nodes)
 	if err != nil {

@@ -3,6 +3,7 @@
 BEAT_NAME?=libbeat ## @packaging Name of the application
 BEAT_DESCRIPTION?=Sends events to Elasticsearch or Logstash ## @packaging Description of the application
 BEAT_PATH?=github.com/elastic/beats/${BEAT_NAME}
+BEAT_PACKAGE_NAME?=${BEAT_NAME}
 BEAT_URL?=https://www.elastic.co/products/beats/${BEAT_NAME} ## @packaging Link to the homepage of the application
 BEAT_DOC_URL?=https://www.elastic.co/guide/en/beats/${BEAT_NAME}/current/index.html ## @packaging Link to the user documentation of the application
 BEAT_LICENSE?=ASL 2.0 ## @packaging Software license of the application
@@ -11,7 +12,8 @@ BEAT_GOPATH=$(firstword $(subst :, ,${GOPATH}))
 ES_BEATS?=..## @community_beat Must be set to ./vendor/github.com/elastic/beats. It must always be a relative path.
 GOPACKAGES?=$(shell go list ${BEAT_PATH}/... | grep -v /vendor/)
 PACKER_TEMPLATES_DIR?=${ES_BEATS}/dev-tools/packer ## @Building Directory of templates that are used by "make package"
-NOTICE_FILE?=../NOTICE
+NOTICE_FILE?=../NOTICE.txt
+LICENSE_FILE?=../LICENSE.txt
 
 space:=$() #
 comma:=,
@@ -30,8 +32,10 @@ COVERAGE_DIR=${BUILD_DIR}/coverage
 COVERAGE_TOOL=${BEAT_GOPATH}/bin/gotestcover
 COVERAGE_TOOL_REPO=github.com/elastic/beats/vendor/github.com/pierrre/gotestcover
 TESTIFY_TOOL_REPO=github.com/elastic/beats/vendor/github.com/stretchr/testify
+LIBCOMPOSE_TOOL_REPO=github.com/docker/libcompose
 GOIMPORTS=goimports
 GOIMPORTS_REPO=golang.org/x/tools/cmd/goimports
+GOIMPORTS_LOCAL_PREFIX?=github.com/elastic
 GOLINT=golint
 GOLINT_REPO=github.com/golang/lint/golint
 REVIEWDOG=reviewdog -conf ${ES_BEATS}/reviewdog.yml
@@ -39,7 +43,7 @@ REVIEWDOG_OPTIONS?=-diff "git diff master"
 REVIEWDOG_REPO=github.com/haya14busa/reviewdog/cmd/reviewdog
 PROCESSES?= 4
 TIMEOUT?= 90
-NOSETESTS_OPTIONS?=--process-timeout=$(TIMEOUT) --with-timer -v ## @testing the options to pass when calling nosetests
+NOSETESTS_OPTIONS?=--process-timeout=$(TIMEOUT) --with-timer -v --with-xunit --xunit-file=${BUILD_DIR}/TEST-system.xml ## @testing the options to pass when calling nosetests
 TEST_ENVIRONMENT?=false ## @testing if true, "make testsuite" runs integration tests and system tests in a dockerized test environment
 SYSTEM_TESTS?=false ## @testing if true, "make test" and "make testsuite" run unit tests and system tests
 GOX_OS?=linux darwin windows solaris freebsd netbsd openbsd ## @Building List of all OS to be supported by "make crosscompile".
@@ -56,12 +60,12 @@ PYTHON_ENV?=${BUILD_DIR}/python-env
 BUILDID?=$(shell git rev-parse HEAD) ## @Building The build ID
 VIRTUALENV_PARAMS?=
 INTEGRATION_TESTS?=
-CGO?=false ## @building if true, Build with C Go support
 FIND=. ${PYTHON_ENV}/bin/activate; find . -type f -not -path "*/vendor/*" -not -path "*/build/*" -not -path "*/.git/*"
 
 # Cross compiling targets
-TARGETS?="linux/amd64 linux/386 windows/amd64 windows/386 darwin/amd64" ## @building list of platforms/architecture to be built by "make package"
-TARGETS_OLD?="" ## @building list of Debian6 architecture to be built by "make package" when CGO is true
+CGO?=true ## @building if true, Build with C Go support
+TARGETS?="windows/amd64 windows/386 darwin/amd64" ## @building list of platforms/architecture to be built by "make package"
+TARGETS_OLD?="linux/amd64 linux/386" ## @building list of Debian6 architecture to be built by "make package" when CGO is true
 PACKAGES?=${BEAT_NAME}/deb ${BEAT_NAME}/rpm ${BEAT_NAME}/darwin ${BEAT_NAME}/win ${BEAT_NAME}/bin ## @Building List of OS to be supported by "make package"
 SNAPSHOT?=yes ## @Building If yes, builds a snapshot version
 BEATS_BUILDER_IMAGE?=tudorg/beats-builder ## @Building Name of the docker image to use when packaging the application
@@ -85,7 +89,7 @@ ${BEAT_NAME}: $(GOFILES_ALL) ## @build build the beat application
 
 # Create test coverage binary
 ${BEAT_NAME}.test: $(GOFILES_ALL)
-	go test $(RACE) -c -coverpkg ${GOPACKAGES_COMMA_SEP}
+	@go test $(RACE) -c -coverpkg ${GOPACKAGES_COMMA_SEP}
 
 .PHONY: crosscompile
 crosscompile: ## @build Cross-compile beat for the OS'es specified in GOX_OS variable. The binaries are placed in the build/bin directory.
@@ -96,15 +100,15 @@ crosscompile: $(GOFILES)
 
 .PHONY: check
 check: python-env ## @build Checks project and source code if everything is according to standard
-	go vet ${GOPACKAGES}
+	@go vet ${GOPACKAGES}
 	@go get $(GOIMPORTS_REPO)
-	@goimports -l ${GOFILES_NOVENDOR} | (! grep . -q) || (echo "Code differs from goimports' style" && false)
-	${FIND} -name *.py -exec autopep8 -d --max-line-length 120  {} \; | (! grep . -q) || (echo "Code differs from autopep8's style" && false)
+	@goimports -local ${GOIMPORTS_LOCAL_PREFIX} -l ${GOFILES_NOVENDOR} | (! grep . -q) || (echo "Code differs from goimports' style" && false)
+	@${FIND} -name *.py -exec autopep8 -d --max-line-length 120  {} \; | (! grep . -q) || (echo "Code differs from autopep8's style" && false)
 
 .PHONY: fmt
 fmt: python-env ## @build Runs `goimports -l -w` and `autopep8`on the project's source code, modifying any files that do not match its style.
-	goimports -l -w ${GOFILES_NOVENDOR}
-	. ${PYTHON_ENV}/bin/activate && ${FIND} -name *.py -exec autopep8 --in-place --max-line-length 120  {} \;
+	@goimports -local ${GOIMPORTS_LOCAL_PREFIX} -l -w ${GOFILES_NOVENDOR}
+	@${FIND} -name *.py -exec ${PYTHON_ENV}/bin/autopep8 --in-place --max-line-length 120  {} \;
 
 .PHONY: lint
 lint:
@@ -113,17 +117,12 @@ lint:
 
 .PHONY: clean
 clean:: ## @build  Cleans up all files generated by the build steps
-	rm -rf build
-	# Remove binaries
-	rm -f ${BEAT_NAME} ${BEAT_NAME}.test ${BEAT_NAME}.exe ${BEAT_NAME}.test.exe
-	# Remove generated fields docs
-	rm -f _meta/fields.generated.yml fields.yml
-	# Remove config files and fields which will be generated
-	rm -f ${BEAT_NAME}.yml {BEAT_NAME}.full.yml
-	# Clean index pattern
-	rm -f $(PWD)/_meta/kibana/index-pattern/${BEAT_NAME}.json
-	# Remove temp templates
-	-rm -f ${BEAT_NAME}.template*.json
+	@rm -rf build
+	@rm -f docker-compose.yml.lock
+	@rm -f ${BEAT_NAME} ${BEAT_NAME}.test ${BEAT_NAME}.exe ${BEAT_NAME}.test.exe
+	@rm -f _meta/fields.generated.yml fields.yml
+	@rm -f $(PWD)/_meta/kibana/index-pattern/${BEAT_NAME}.json
+	@rm -f ${BEAT_NAME}.template*.json
 
 .PHONY: ci
 ci:  ## @build Shortcut for continuous integration. This should always run before merging.
@@ -140,8 +139,10 @@ prepare-tests:
 	mkdir -p ${COVERAGE_DIR}
 	# gotestcover is needed to fetch coverage for multiple packages
 	go get ${COVERAGE_TOOL_REPO}
-	# testify is needed to for unit and integration tests
+	# testify is needed for unit and integration tests
 	go get ${TESTIFY_TOOL_REPO}
+	# libcompose is needed for integration tests
+	go get ${LIBCOMPOSE_TOOL_REPO}
 
 .PHONY: unit-tests
 unit-tests: ## @testing Runs the unit tests with coverage.  Race is not enabled for unit tests because tests run much slower.
@@ -155,32 +156,33 @@ unit: ## @testing Runs the unit tests without coverage reports.
 .PHONY: integration-tests
 integration-tests: ## @testing Run integration tests. Unit tests are run as part of the integration tests.
 integration-tests: prepare-tests
+	rm -f docker-compose.yml.lock
 	$(COVERAGE_TOOL) -tags=integration $(RACE) -coverprofile=${COVERAGE_DIR}/integration.cov  ${GOPACKAGES}
 
 #
 .PHONY: integration-tests-environment
 integration-tests-environment:  ## @testing Runs the integration inside a virtual environment. This can be run on any docker-machine (local, remote)
 integration-tests-environment: prepare-tests build-image
-	${DOCKER_COMPOSE} run beat make integration-tests RACE_DETECTOR=$(RACE_DETECTOR)
+	${DOCKER_COMPOSE} run beat make integration-tests RACE_DETECTOR=$(RACE_DETECTOR) DOCKER_COMPOSE_PROJECT_NAME=${DOCKER_COMPOSE_PROJECT_NAME}
 
 # Runs the system tests
 .PHONY: system-tests
 system-tests: ## @testing Runs the system tests
-system-tests: ${BEAT_NAME}.test prepare-tests python-env ${ES_BEATS}/dev-tools/cmd/import_dashboards/import_dashboards
-	. ${PYTHON_ENV}/bin/activate; INTEGRATION_TESTS=${INTEGRATION_TESTS} TESTING_ENVIRONMENT=${TESTING_ENVIRONMENT} nosetests -w tests/system ${NOSETESTS_OPTIONS}
+system-tests: prepare-tests ${BEAT_NAME}.test python-env ${ES_BEATS}/dev-tools/cmd/dashboards/export_dashboards
+	. ${PYTHON_ENV}/bin/activate; INTEGRATION_TESTS=${INTEGRATION_TESTS} TESTING_ENVIRONMENT=${TESTING_ENVIRONMENT} DOCKER_COMPOSE_PROJECT_NAME=${DOCKER_COMPOSE_PROJECT_NAME} nosetests -w tests/system ${NOSETESTS_OPTIONS}
 	python ${ES_BEATS}/dev-tools/aggregate_coverage.py -o ${COVERAGE_DIR}/system.cov ./build/system-tests/run
 
 # Runs the system tests
 .PHONY: system-tests-environment
 system-tests-environment:  ## @testing Runs the system tests inside a virtual environment. This can be run on any docker-machine (local, remote)
 system-tests-environment: prepare-tests build-image
-	${DOCKER_COMPOSE} run -e INTEGRATION_TESTS=1 -e TESTING_ENVIRONMENT=${TESTING_ENVIRONMENT} beat make system-tests
+	${DOCKER_COMPOSE} run -e INTEGRATION_TESTS=1 -e TESTING_ENVIRONMENT=${TESTING_ENVIRONMENT} -e DOCKER_COMPOSE_PROJECT_NAME=${DOCKER_COMPOSE_PROJECT_NAME} beat make system-tests
 
 
 .PHONY: fast-system-tests
 fast-system-tests: ## @testing Runs system tests without coverage reports and in parallel
 fast-system-tests: ${BEAT_NAME}.test python-env
-	. ${PYTHON_ENV}/bin/activate; nosetests -w tests/system --processes=$(PROCESSES) --process-timeout=$(TIMEOUT)
+	. ${PYTHON_ENV}/bin/activate; nosetests -w tests/system ${NOSETESTS_OPTIONS}
 
 # Run benchmark tests
 .PHONY: benchmark-tests
@@ -256,37 +258,37 @@ coverage-report:
 .PHONY: update
 update: ## @build Update expects the most recent version of libbeat in the GOPATH
 update: python-env collect
+	@echo "Updating generated files for ${BEAT_NAME}"
 
-	# Update config
-	echo "Update config file"
-	cat _meta/beat.yml ${ES_BEATS}/libbeat/_meta/config.yml | sed -e "s/beatname/${BEAT_NAME}/g" > ${BEAT_NAME}.yml
-	cat _meta/beat.yml ${ES_BEATS}/libbeat/_meta/config.full.yml | sed -e "s/beatname/${BEAT_NAME}/g" > ${BEAT_NAME}.full.yml
-	chmod go-w ${BEAT_NAME}.yml ${BEAT_NAME}.full.yml
+	@# Update config files.
+	@cat _meta/beat.yml ${ES_BEATS}/libbeat/_meta/config.yml | sed -e "s/beatname/${BEAT_NAME}/g" > ${BEAT_NAME}.yml
+	@if [ -e _meta/beat.reference.yml ]; then \
+        cat _meta/beat.reference.yml ${ES_BEATS}/libbeat/_meta/config.reference.yml | sed -e "s/beatname/${BEAT_NAME}/g" > ${BEAT_NAME}.reference.yml ; \
+    else \
+        cat _meta/beat.yml ${ES_BEATS}/libbeat/_meta/config.reference.yml | sed -e "s/beatname/${BEAT_NAME}/g" > ${BEAT_NAME}.reference.yml ; \
+    fi;
+	@chmod 0640 ${BEAT_NAME}.yml ${BEAT_NAME}.reference.yml
 
-	# Check if also a full config exist (optional)
-	if [ -a _meta/beat.full.yml ] ; \
-    then \
-		cat _meta/beat.full.yml ${ES_BEATS}/libbeat/_meta/config.full.yml | sed -e "s/beatname/${BEAT_NAME}/g" > ${BEAT_NAME}.full.yml ; \
-	fi;
+	@# Update libbeat fields.generated.yml
+	@$(MAKE) -C ${ES_BEATS}/libbeat fields
 
-	# make sure generated docs in libbeat are up-to-date
-	$(MAKE) -C ${ES_BEATS}/libbeat fields
+	@# Update fields.yml
+	@test -s  _meta/fields.generated.yml || cp _meta/fields.yml _meta/fields.generated.yml
+ifeq ($(BEAT_NAME), libbeat)
+	@cp ${ES_BEATS}/libbeat/_meta/fields.generated.yml fields.yml
+else
+	@cat ${ES_BEATS}/libbeat/_meta/fields.generated.yml _meta/fields.generated.yml > fields.yml
+endif
 
-	# Generate full fields for each beat. Create fields.generated.yml in case it does not exist yet.
-	# Most beats have their own way of generating it.
-	test -s  _meta/fields.generated.yml || cp _meta/fields.yml _meta/fields.generated.yml
-	cat ${ES_BEATS}/libbeat/_meta/fields.generated.yml _meta/fields.generated.yml > fields.yml
-	# Revert changes to libbeat fields as it otherwise contains duplicates in full
-	cat ${ES_BEATS}/libbeat/_meta/fields.generated.yml > ${ES_BEATS}/libbeat/fields.yml
+	@# Update docs
+	@mkdir -p docs
+	@${PYTHON_ENV}/bin/python ${ES_BEATS}/libbeat/scripts/generate_fields_docs.py $(PWD) ${BEAT_NAME} ${ES_BEATS}
 
-	# Update docs
-	mkdir -p docs
-	. ${PYTHON_ENV}/bin/activate && python ${ES_BEATS}/libbeat/scripts/generate_fields_docs.py $(PWD) ${BEAT_NAME} ${ES_BEATS}
+	@# Generate Kibana index pattern
+	@mkdir -p $(PWD)/_meta/kibana/5.x/index-pattern
+	@mkdir -p $(PWD)/_meta/kibana/default/index-pattern
+	@${PYTHON_ENV}/bin/python ${ES_BEATS}/libbeat/scripts/generate_index_pattern.py --index '${BEAT_NAME}-*' --beat $(PWD) --version ${BEAT_VERSION}
 
-	# Generate index-pattern
-	echo "Generate index pattern"
-	mkdir -p $(PWD)/_meta/kibana/index-pattern
-	. ${PYTHON_ENV}/bin/activate && python ${ES_BEATS}/libbeat/scripts/generate_index_pattern.py --index '${BEAT_NAME}-*' --libbeat ${ES_BEATS}/libbeat --beat $(PWD)
 
 .PHONY: docs
 docs:  ## @build Builds the documents for the beat
@@ -300,21 +302,18 @@ docs-preview:  ## @build Preview the documents for the beat in the browser
 
 .PHONY: index-template
 index-template: ## @build Generate index templates for the given $VERSION. This is for manual testing.
-	go run ${ES_BEATS}/dev-tools/cmd/index_template/index_template.go -es.version ${VERSION} -index ${BEAT_NAME} -output ${BEAT_GOPATH}/src/${BEAT_PATH}/${BEAT_NAME}.template-es${VERSION}.json -file ${BEAT_GOPATH}/src/${BEAT_PATH}/fields.yml
+	go run ${ES_BEATS}/dev-tools/cmd/index_template/index_template.go -index ${BEAT_NAME} -output ${BEAT_GOPATH}/src/${BEAT_PATH}/${BEAT_NAME}.template-es${VERSION}.json -file ${BEAT_GOPATH}/src/${BEAT_PATH}/fields.yml -es.version=${VERSION}
 
 ### KIBANA FILES HANDLING ###
 ES_URL?=http://localhost:9200
+KIBANA_URL?=http://localhost:5601
 
-.PHONY: export-dashboards
-export-dashboards: python-env update
-	. ${PYTHON_ENV}/bin/activate && python ${ES_BEATS}/dev-tools/export_dashboards.py --url ${ES_URL} --dir $(shell pwd)/_meta/kibana --regex ${BEAT_NAME}-*
-
-${ES_BEATS}/dev-tools/cmd/import_dashboards/import_dashboards:
-	$(MAKE) -C ${ES_BEATS}/dev-tools/cmd/import_dashboards import_dashboards
+${ES_BEATS}/dev-tools/cmd/dashboards/export_dashboards:
+	$(MAKE) -C ${ES_BEATS}/dev-tools/cmd/dashboards export_dashboards
 
 .PHONY: import-dashboards
-import-dashboards: update ${ES_BEATS}/dev-tools/cmd/import_dashboards/import_dashboards
-	${ES_BEATS}/dev-tools/cmd/import_dashboards/import_dashboards -es ${ES_URL} -dir ${PWD}/_meta/kibana
+import-dashboards: update ${BEAT_NAME}
+	${BEAT_GOPATH}/src/${BEAT_PATH}/${BEAT_NAME} setup -E setup.dashboards.directory=${PWD}/_meta/kibana -E setup.kibana.host=${KIBANA_URL} --dashboards
 
 ### CONTAINER ENVIRONMENT ####
 
@@ -354,15 +353,20 @@ env-logs:
 HOME_PREFIX?=/tmp/${BEAT_NAME}
 .PHONY: install-home
 install-home:
-	install -d -m 755 ${HOME_PREFIX}/scripts/
-	install -m 755 ${ES_BEATS}/libbeat/scripts/migrate_beat_config_1_x_to_5_0.py ${HOME_PREFIX}/scripts/
 	if [ -a ${NOTICE_FILE} ]; then \
 		install -m 644 ${NOTICE_FILE} ${HOME_PREFIX}/; \
+	fi
+	if [ -a ${LICENSE_FILE} ]; then \
+		install -m 644 ${LICENSE_FILE} ${HOME_PREFIX}/; \
 	fi
 	if [ -d _meta/module.generated ]; then \
 		install -d -m 755 ${HOME_PREFIX}/module; \
 		rsync -av _meta/module.generated/ ${HOME_PREFIX}/module/; \
 		chmod -R go-w ${HOME_PREFIX}/module/; \
+	fi
+	if [ -d _meta/kibana ]; then \
+		install -d -m 755 ${HOME_PREFIX}/kibana; \
+		rsync -av _meta/kibana/ ${HOME_PREFIX}/kibana/; \
 	fi
 
 # Prepares for packaging. Builds binaries and creates homedir data
@@ -438,6 +442,7 @@ package: package-setup
 	echo "beat_name: ${BEAT_NAME}" > ${BUILD_DIR}/package.yml
 	echo "beat_url: ${BEAT_URL}" >> ${BUILD_DIR}/package.yml
 	echo "beat_repo: ${BEAT_PATH}" >> ${BUILD_DIR}/package.yml
+	echo "beat_pkg_name: ${BEAT_PACKAGE_NAME}" >> ${BUILD_DIR}/package.yml
 	echo "beat_description: ${BEAT_DESCRIPTION}" >> ${BUILD_DIR}/package.yml
 	echo "beat_vendor: ${BEAT_VENDOR}" >> ${BUILD_DIR}/package.yml
 	echo "beat_license: ${BEAT_LICENSE}" >> ${BUILD_DIR}/package.yml

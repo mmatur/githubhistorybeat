@@ -10,11 +10,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
+	"github.com/elastic/beats/libbeat/beat"
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/logp"
 	"github.com/elastic/beats/packetbeat/protos"
-	"github.com/elastic/beats/packetbeat/publish"
-	"github.com/stretchr/testify/assert"
 )
 
 type testParser struct {
@@ -25,9 +26,21 @@ type testParser struct {
 
 var testParserConfig = parserConfig{}
 
+type eventStore struct {
+	events []beat.Event
+}
+
+func (e *eventStore) publish(event beat.Event) {
+	e.events = append(e.events, event)
+}
+
+func (e *eventStore) empty() bool {
+	return len(e.events) == 0
+}
+
 func newTestParser(http *httpPlugin, payloads ...string) *testParser {
 	if http == nil {
-		http = httpModForTests()
+		http = httpModForTests(nil)
 	}
 	tp := &testParser{
 		http:     http,
@@ -49,9 +62,13 @@ func (tp *testParser) parse() (*message, bool, bool) {
 	return st.message, ok, complete
 }
 
-func httpModForTests() *httpPlugin {
-	results := &publish.ChanTransactions{Channel: make(chan common.MapStr, 10)}
-	http, err := New(false, results, common.NewConfig())
+func httpModForTests(store *eventStore) *httpPlugin {
+	callback := func(beat.Event) {}
+	if store != nil {
+		callback = store.publish
+	}
+
+	http, err := New(false, callback, common.NewConfig())
 	if err != nil {
 		panic(err)
 	}
@@ -117,7 +134,7 @@ func TestHttpParser_simpleResponseCaseInsensitive(t *testing.T) {
 }
 
 func TestHttpParser_simpleRequest(t *testing.T) {
-	http := httpModForTests()
+	http := httpModForTests(nil)
 	http.parserConfig.sendHeaders = true
 	http.parserConfig.sendAllHeaders = true
 
@@ -148,7 +165,7 @@ func TestHttpParser_simpleRequest(t *testing.T) {
 }
 
 func TestHttpParser_Request_ContentLength_0(t *testing.T) {
-	http := httpModForTests()
+	http := httpModForTests(nil)
 	http.parserConfig.sendHeaders = true
 	http.parserConfig.sendAllHeaders = true
 
@@ -170,7 +187,7 @@ func TestHttpParser_eatBody(t *testing.T) {
 		logp.LogInit(logp.LOG_DEBUG, "", false, true, []string{"http", "httpdetailed"})
 	}
 
-	http := httpModForTests()
+	http := httpModForTests(nil)
 	http.parserConfig.sendHeaders = true
 	http.parserConfig.sendAllHeaders = true
 
@@ -207,7 +224,7 @@ func TestHttpParser_eatBody_connclose(t *testing.T) {
 		logp.LogInit(logp.LOG_DEBUG, "", false, true, []string{"http", "httpdetailed"})
 	}
 
-	http := httpModForTests()
+	http := httpModForTests(nil)
 	http.parserConfig.sendHeaders = true
 	http.parserConfig.sendAllHeaders = true
 
@@ -261,7 +278,7 @@ func TestHttpParser_splitResponse(t *testing.T) {
 }
 
 func TestHttpParser_splitResponse_midHeaderName(t *testing.T) {
-	http := httpModForTests()
+	http := httpModForTests(nil)
 	http.parserConfig.sendHeaders = true
 	http.parserConfig.sendAllHeaders = true
 
@@ -659,7 +676,7 @@ func TestHttpParser_censorPasswordURL(t *testing.T) {
 		logp.LogInit(logp.LOG_DEBUG, "", false, true, []string{"http", "httpdetailed"})
 	}
 
-	http := httpModForTests()
+	http := httpModForTests(nil)
 	http.hideKeywords = []string{"password", "pass"}
 	http.parserConfig.sendHeaders = true
 	http.parserConfig.sendAllHeaders = true
@@ -692,12 +709,11 @@ func TestHttpParser_censorPasswordURL(t *testing.T) {
 }
 
 func TestHttpParser_censorPasswordPOST(t *testing.T) {
-
 	if testing.Verbose() {
 		logp.LogInit(logp.LOG_DEBUG, "", false, true, []string{"http", "httpdetailed"})
 	}
 
-	http := httpModForTests()
+	http := httpModForTests(nil)
 	http.hideKeywords = []string{"password"}
 	http.parserConfig.sendHeaders = true
 	http.parserConfig.sendAllHeaders = true
@@ -727,7 +743,7 @@ func TestHttpParser_censorPasswordGET(t *testing.T) {
 		logp.LogInit(logp.LOG_DEBUG, "", false, true, []string{"http", "httpdetailed"})
 	}
 
-	http := httpModForTests()
+	http := httpModForTests(nil)
 	http.hideKeywords = []string{"password"}
 	http.parserConfig.sendHeaders = true
 	http.parserConfig.sendAllHeaders = true
@@ -769,12 +785,11 @@ func TestHttpParser_censorPasswordGET(t *testing.T) {
 }
 
 func TestHttpParser_RedactAuthorization(t *testing.T) {
-
 	if testing.Verbose() {
 		logp.LogInit(logp.LOG_DEBUG, "", false, true, []string{"http", "httpdetailed"})
 	}
 
-	http := httpModForTests()
+	http := httpModForTests(nil)
 	http.redactAuthorization = true
 	http.parserConfig.sendHeaders = true
 	http.parserConfig.sendAllHeaders = true
@@ -815,8 +830,7 @@ func TestHttpParser_RedactAuthorization(t *testing.T) {
 }
 
 func TestHttpParser_RedactAuthorization_raw(t *testing.T) {
-
-	http := httpModForTests()
+	http := httpModForTests(nil)
 	http.redactAuthorization = true
 	http.parserConfig.sendHeaders = false
 	http.parserConfig.sendAllHeaders = false
@@ -852,8 +866,7 @@ func TestHttpParser_RedactAuthorization_raw(t *testing.T) {
 }
 
 func TestHttpParser_RedactAuthorization_Proxy_raw(t *testing.T) {
-
-	http := httpModForTests()
+	http := httpModForTests(nil)
 	http.redactAuthorization = true
 	http.parserConfig.sendHeaders = false
 	http.parserConfig.sendAllHeaders = false
@@ -967,8 +980,7 @@ func Test_splitCookiesHeader(t *testing.T) {
 // If a TCP gap (lost packets) happen while we're waiting for
 // headers, drop the stream.
 func Test_gap_in_headers(t *testing.T) {
-
-	http := httpModForTests()
+	http := httpModForTests(nil)
 
 	data1 := []byte("HTTP/1.1 200 OK\r\n" +
 		"Date: Tue, 14 Aug 2012 22:31:45 GMT\r\n" +
@@ -989,8 +1001,7 @@ func Test_gap_in_headers(t *testing.T) {
 // If a TCP gap (lost packets) happen while we're waiting for
 // parts of the body, it's ok.
 func Test_gap_in_body(t *testing.T) {
-
-	http := httpModForTests()
+	http := httpModForTests(nil)
 
 	data1 := []byte("HTTP/1.1 200 OK\r\n" +
 		"Date: Tue, 14 Aug 2012 22:31:45 GMT\r\n" +
@@ -1022,8 +1033,7 @@ func Test_gap_in_body(t *testing.T) {
 // If a TCP gap (lost packets) happen while we're waiting for
 // parts of the body, it's ok.
 func Test_gap_in_body_http1dot0(t *testing.T) {
-
-	http := httpModForTests()
+	http := httpModForTests(nil)
 
 	data1 := []byte("HTTP/1.0 200 OK\r\n" +
 		"Date: Tue, 14 Aug 2012 22:31:45 GMT\r\n" +
@@ -1045,7 +1055,6 @@ func Test_gap_in_body_http1dot0(t *testing.T) {
 	ok, complete = http.messageGap(st, 10)
 	assert.Equal(t, true, ok)
 	assert.Equal(t, false, complete)
-
 }
 
 func testCreateTCPTuple() *common.TCPTuple {
@@ -1059,15 +1068,15 @@ func testCreateTCPTuple() *common.TCPTuple {
 }
 
 // Helper function to read from the Publisher Queue
-func expectTransaction(t *testing.T, http *httpPlugin) common.MapStr {
-	client := http.results.(*publish.ChanTransactions)
-	select {
-	case trans := <-client.Channel:
-		return trans
-	default:
+func expectTransaction(t *testing.T, e *eventStore) common.MapStr {
+	if len(e.events) == 0 {
 		t.Error("No transaction")
+		return nil
 	}
-	return nil
+
+	event := e.events[0]
+	e.events = e.events[1:]
+	return event.Fields
 }
 
 func Test_gap_in_body_http1dot0_fin(t *testing.T) {
@@ -1075,7 +1084,8 @@ func Test_gap_in_body_http1dot0_fin(t *testing.T) {
 		logp.LogInit(logp.LOG_DEBUG, "", false, true, []string{"http",
 			"httpdetailed"})
 	}
-	http := httpModForTests()
+	var store eventStore
+	http := httpModForTests(&store)
 
 	data1 := []byte("GET / HTTP/1.0\r\n\r\n")
 
@@ -1109,14 +1119,13 @@ func Test_gap_in_body_http1dot0_fin(t *testing.T) {
 
 	http.ReceivedFin(tcptuple, 1, private)
 
-	trans := expectTransaction(t, http)
+	trans := expectTransaction(t, &store)
 	assert.NotNil(t, trans)
 	assert.Equal(t, trans["notes"], []string{"Packet loss while capturing the response"})
 }
 
 func TestHttp_configsSettingAll(t *testing.T) {
-
-	http := httpModForTests()
+	http := httpModForTests(nil)
 	config := defaultConfig
 
 	// Assign config vars
@@ -1147,8 +1156,7 @@ func TestHttp_configsSettingAll(t *testing.T) {
 }
 
 func TestHttp_configsSettingHeaders(t *testing.T) {
-
-	http := httpModForTests()
+	http := httpModForTests(nil)
 	config := defaultConfig
 
 	// Assign config vars
@@ -1167,7 +1175,7 @@ func TestHttp_configsSettingHeaders(t *testing.T) {
 }
 
 func benchmarkHTTPMessage(b *testing.B, data []byte) {
-	http := httpModForTests()
+	http := httpModForTests(nil)
 	parser := newParser(&http.parserConfig)
 
 	for i := 0; i < b.N; i++ {
@@ -1226,7 +1234,7 @@ func BenchmarkHTTPSplitResponse(b *testing.B) {
 		"X-Frame-Options: SAMEORIGIN\r\n" +
 		"\r\n")
 
-	http := httpModForTests()
+	http := httpModForTests(nil)
 	parser := newParser(&http.parserConfig)
 
 	for i := 0; i < b.N; i++ {
@@ -1270,12 +1278,10 @@ func BenchmarkHttpSimpleTransaction(b *testing.B) {
 		"X-Frame-Options: SAMEORIGIN\r\n" +
 		"\r\n"
 
-	http := httpModForTests()
+	http := httpModForTests(nil)
 	tcptuple := testCreateTCPTuple()
 	req := protos.Packet{Payload: []byte(data1)}
 	resp := protos.Packet{Payload: []byte(data2)}
-
-	client := http.results.(*publish.ChanTransactions)
 
 	for i := 0; i < b.N; i++ {
 		private := protos.ProtocolData(&httpConnectionData{})
@@ -1285,11 +1291,5 @@ func BenchmarkHttpSimpleTransaction(b *testing.B) {
 
 		private = http.Parse(&resp, tcptuple, 1, private)
 		http.ReceivedFin(tcptuple, 1, private)
-
-		select {
-		case <-client.Channel:
-		default:
-			b.Error("No transaction returned")
-		}
 	}
 }

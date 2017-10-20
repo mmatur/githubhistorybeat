@@ -3,13 +3,14 @@ package redis
 import (
 	"time"
 
+	rd "github.com/garyburd/redigo/redis"
+
 	"github.com/elastic/beats/filebeat/channel"
+	"github.com/elastic/beats/filebeat/harvester"
 	"github.com/elastic/beats/filebeat/input/file"
 	"github.com/elastic/beats/libbeat/common"
+	"github.com/elastic/beats/libbeat/common/cfgwarn"
 	"github.com/elastic/beats/libbeat/logp"
-
-	"github.com/elastic/beats/filebeat/harvester"
-	rd "github.com/garyburd/redigo/redis"
 )
 
 // Prospector is a prospector for redis
@@ -22,12 +23,17 @@ type Prospector struct {
 }
 
 // NewProspector creates a new redis prospector
-func NewProspector(cfg *common.Config, outlet channel.Outleter) (*Prospector, error) {
+func NewProspector(cfg *common.Config, outletFactory channel.OutleterFactory) (*Prospector, error) {
+	cfgwarn.Experimental("Redis slowlog prospector is enabled.")
 
-	logp.Experimental("Redis slowlog prospector is enabled.")
 	config := defaultConfig
 
 	err := cfg.Unpack(&config)
+	if err != nil {
+		return nil, err
+	}
+
+	outlet, err := outletFactory(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -52,17 +58,18 @@ func (p *Prospector) LoadStates(states []file.State) error {
 func (p *Prospector) Run() {
 	logp.Debug("redis", "Run redis prospector with hosts: %+v", p.config.Hosts)
 
+	if len(p.config.Hosts) == 0 {
+		logp.Err("No redis hosts configured")
+		return
+	}
+
+	forwarder := harvester.NewForwarder(p.outlet)
 	for _, host := range p.config.Hosts {
 		pool := CreatePool(host, p.config.Password, p.config.Network,
 			p.config.MaxConn, p.config.IdleTimeout, p.config.IdleTimeout)
 
-		var err error
-
 		h := NewHarvester(pool.Get())
-		h.forwarder, err = harvester.NewForwarder(p.cfg, p.outlet)
-		if err != nil {
-			logp.Err("Error: %s", err)
-		}
+		h.forwarder = forwarder
 
 		p.registry.Start(h)
 	}
@@ -71,6 +78,7 @@ func (p *Prospector) Run() {
 // Stop stopps the prospector and all its harvesters
 func (p *Prospector) Stop() {
 	p.registry.Stop()
+	p.outlet.Close()
 }
 
 // Wait waits for the propsector to be completed. Not implemented.

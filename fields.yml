@@ -96,6 +96,35 @@
     - name: meta.cloud.region
       description: >
         Region in which this host is running.
+- key: docker
+  title: docker
+  description: >
+    beta[]
+
+    Docker stats collected from Docker.
+  short_config: false
+  anchor: docker-processor
+  fields:
+    - name: docker
+      type: group
+      fields:
+        - name: container.id
+          type: keyword
+          description: >
+            Unique container id.
+        - name: container.image
+          type: keyword
+          description: >
+            Name of the image the container was built on.
+        - name: container.name
+          type: keyword
+          description: >
+            Container name.
+        - name: container.labels
+          type: object
+          object_type: keyword
+          description: >
+            Image labels.
 - key: kubernetes
   title: kubernetes
   description: >
@@ -141,52 +170,52 @@
   title: githubhistorybeat
   description:
   fields:
-    - name: github_repository_fullname
+    - name: github.repository.fullname
       type: text
       required: true
       description: >
         The full name of the repository
-    - name: github_repository_owner
+    - name: github.repository.owner
       type: text
       required: true
       description: >
         The owner of the repository
-    - name: github_repository_name
+    - name: github.repository.name
       type: text
       required: true
       description: >
         The name of the repository
-    - name: github_repository_forks_count
+    - name: github.repository.forks_count
       type: long
       required: true
       description: >
         The count of forks for the repository
-    - name: github_repository_pull_requests_count
+    - name: github.repository.pull_requests_count
       type: long
       required: true
       description: >
         The count of pull request for the repository
-    - name: github_repository_open_issues_count
+    - name: github.repository.open_issues_count
       type: long
       required: true
       description: >
         The count of open issues for the repository
-    - name: github_repository_stargazers_count
+    - name: github.repository.stargazers_count
       type: long
       required: true
       description: >
         The count of stargazers for the repository
-    - name: github_repository_networks_count
+    - name: github.repository.networks_count
       type: long
       required: true
       description: >
         The count of networks for the repository
-    - name: github_repository_suscribers_count
+    - name: github.repository.suscribers_count
       type: long
       required: true
       description: >
         The count of subscribers for the repository
-    - name: github_repository_watchers_count
+    - name: github.repository.watchers_count
       type: long
       required: true
       description: >

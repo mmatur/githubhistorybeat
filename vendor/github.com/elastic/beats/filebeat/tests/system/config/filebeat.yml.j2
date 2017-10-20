@@ -89,21 +89,17 @@ filebeat.prospectors:
 {{prospector_raw}}
 {% endif %}
 
-filebeat.spool_size:
 filebeat.shutdown_timeout: {{ shutdown_timeout|default(0) }}
-filebeat.idle_timeout: 0.1s
 {% if not skip_registry_config %}
 filebeat.registry_file: {{ beat.working_dir + '/' }}{{ registryFile|default("registry")}}
 {%endif%}
-filebeat.publish_async: {{publish_async}}
 
 {% if reload or reload_path -%}
-filebeat.config.prospectors:
-  enabled: true
+filebeat.config.{{ reload_type|default("prospectors") }}:
   path: {{ reload_path }}
   {% if reload  -%}
   reload.period: 1s
-  reload.enabled: true
+  reload.enabled: {{ reload|default("false") }}
   {% endif -%}
 {% endif -%}
 
@@ -136,6 +132,11 @@ geoip:
   ]
 {%- endif %}
 
+{% if setup_template_name is not none %}
+setup.template.name: setup_template_name
+setup.template.pattern: setup_template_pattern
+{%- endif %}
+
 {%- if processors %}
 
 #================================ Filters =====================================
@@ -155,6 +156,13 @@ processors:
 
 {%- endif %}
 
+#================================ Queue =====================================
+
+queue.mem:
+  events: 4096
+  flush.min_events: 8
+  flush.timeout: 0.1s
+
 #================================ Outputs =====================================
 
 # Configure what outputs to use when sending the data collected by the beat.
@@ -164,8 +172,12 @@ processors:
 #------------------------------- Elasticsearch output ----------------------------
 output.elasticsearch:
   hosts: ["{{ elasticsearch.host }}"]
+{% if elasticsearch.pipeline %}
   pipeline: {{elasticsearch.pipeline}}
+{% endif %}
+{% if elasticsearch.index %}
   index: {{elasticsearch.index}}
+{% endif %}
 {%- elif logstash %}
 #------------------------------- Logstash output ---------------------------------
 output.logstash:

@@ -3,14 +3,14 @@ This file is generated! See scripts/docs_collector.py
 ////
 
 [[metricbeat-module-dropwizard]]
-== dropwizard Module
+== Dropwizard module
 
-This is the http://dropwizard.io[Dropwizard] Module.
+This is the http://dropwizard.io[Dropwizard] module.
 
 
 
 [float]
-=== Example Configuration
+=== Example configuration
 
 The Dropwizard module supports the standard configuration options that are described
 in <<configuration-metricbeat>>. Here is an example configuration:
@@ -20,7 +20,6 @@ in <<configuration-metricbeat>>. Here is an example configuration:
 metricbeat.modules:
 - module: dropwizard
   metricsets: ["collector"]
-  enabled: false
   period: 10s
   hosts: ["localhost:8080"]
   metrics_path: /metrics/metrics

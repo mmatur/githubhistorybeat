@@ -5,10 +5,12 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
+
 	cfg "github.com/elastic/beats/filebeat/config"
 	"github.com/elastic/beats/filebeat/harvester"
 	"github.com/elastic/beats/filebeat/harvester/reader"
 	"github.com/elastic/beats/filebeat/input/file"
+	"github.com/elastic/beats/libbeat/common/cfgwarn"
 	"github.com/elastic/beats/libbeat/common/match"
 	"github.com/elastic/beats/libbeat/logp"
 )
@@ -29,6 +31,8 @@ var (
 		HarvesterLimit: 0,
 		Symlinks:       false,
 		TailFiles:      false,
+		ScanSort:       "",
+		ScanOrder:      "asc",
 
 		// Harvester
 		BufferSize: 16 * humanize.KiByte,
@@ -69,6 +73,8 @@ type config struct {
 	// Harvester
 	BufferSize int    `config:"harvester_buffer_size"`
 	Encoding   string `config:"encoding"`
+	ScanOrder  string `config:"scan.order"`
+	ScanSort   string `config:"scan.sort"`
 
 	ExcludeLines []match.Matcher         `config:"exclude_lines"`
 	IncludeLines []match.Matcher         `config:"include_lines"`
@@ -88,8 +94,29 @@ type LogConfig struct {
 	CloseTimeout  time.Duration `config:"close_timeout" validate:"min=0"`
 }
 
-func (c *config) Validate() error {
+// Contains available scan options
+const (
+	ScanOrderAsc     = "asc"
+	ScanOrderDesc    = "desc"
+	ScanSortNone     = ""
+	ScanSortModtime  = "modtime"
+	ScanSortFilename = "filename"
+)
 
+// ValidScanOrder of valid scan orders
+var ValidScanOrder = map[string]struct{}{
+	ScanOrderAsc:  {},
+	ScanOrderDesc: {},
+}
+
+// ValidScanOrder of valid scan orders
+var ValidScanSort = map[string]struct{}{
+	ScanSortNone:     {},
+	ScanSortModtime:  {},
+	ScanSortFilename: {},
+}
+
+func (c *config) Validate() error {
 	// DEPRECATED 6.0.0: warning is already outputted on propsector level
 	if c.InputType != "" {
 		c.Type = c.InputType
@@ -122,6 +149,20 @@ func (c *config) Validate() error {
 	if c.JSON != nil && len(c.JSON.MessageKey) == 0 &&
 		(len(c.IncludeLines) > 0 || len(c.ExcludeLines) > 0) {
 		return fmt.Errorf("When using the JSON decoder and line filtering together, you need to specify a message_key value")
+	}
+
+	if c.ScanSort != "" {
+		cfgwarn.Experimental("scan_sort is used.")
+
+		// Check input type
+		if _, ok := ValidScanSort[c.ScanSort]; !ok {
+			return fmt.Errorf("Invalid scan sort: %v", c.ScanSort)
+		}
+
+		// Check input type
+		if _, ok := ValidScanOrder[c.ScanOrder]; !ok {
+			return fmt.Errorf("Invalid scan order: %v", c.ScanOrder)
+		}
 	}
 
 	return nil

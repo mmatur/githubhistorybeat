@@ -8,12 +8,13 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/elastic/beats/libbeat/outputs/elasticsearch"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/elastic/beats/libbeat/outputs/elasticsearch"
 )
 
 func TestLoadPipeline(t *testing.T) {
-	client := elasticsearch.GetTestingElasticsearch()
+	client := elasticsearch.GetTestingElasticsearch(t)
 	if !hasIngest(client) {
 		t.Skip("Skip tests because ingest is missing in this elasticsearch version: %s", client.GetVersion())
 	}
@@ -56,7 +57,7 @@ func TestLoadPipeline(t *testing.T) {
 }
 
 func TestSetupNginx(t *testing.T) {
-	client := elasticsearch.GetTestingElasticsearch()
+	client := elasticsearch.GetTestingElasticsearch(t)
 	if !hasIngest(client) {
 		t.Skip("Skip tests because ingest is missing in this elasticsearch version: %s", client.GetVersion())
 	}
@@ -67,8 +68,8 @@ func TestSetupNginx(t *testing.T) {
 	modulesPath, err := filepath.Abs("../module")
 	assert.NoError(t, err)
 
-	configs := []ModuleConfig{
-		{Module: "nginx"},
+	configs := []*ModuleConfig{
+		&ModuleConfig{Module: "nginx"},
 	}
 
 	reg, err := newModuleRegistry(modulesPath, configs, nil, "5.2.0")
@@ -88,7 +89,7 @@ func TestSetupNginx(t *testing.T) {
 }
 
 func TestAvailableProcessors(t *testing.T) {
-	client := elasticsearch.GetTestingElasticsearch()
+	client := elasticsearch.GetTestingElasticsearch(t)
 	if !hasIngest(client) {
 		t.Skip("Skip tests because ingest is missing in this elasticsearch version: %s", client.GetVersion())
 	}

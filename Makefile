@@ -1,3 +1,4 @@
+SNAPSHOT=no
 BEAT_NAME=githubhistorybeat
 BEAT_PATH=github.com/mmatur/githubhistorybeat
 BEAT_GOPATH=$(firstword $(subst :, ,${GOPATH}))
@@ -5,9 +6,8 @@ BEAT_URL=https://${BEAT_PATH}
 SYSTEM_TESTS=false
 TEST_ENVIRONMENT=false
 ES_BEATS?=./vendor/github.com/elastic/beats
-GOPACKAGES=$(shell glide novendor)
+GOPACKAGES=$(shell govendor list +local)
 PREFIX?=.
-SNAPSHOT?=no
 NOTICE_FILE=NOTICE
 
 # Path to the libbeat Makefile

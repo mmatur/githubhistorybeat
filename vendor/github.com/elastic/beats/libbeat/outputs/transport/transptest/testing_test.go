@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/armon/go-socks5"
+	socks5 "github.com/armon/go-socks5"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/elastic/beats/libbeat/outputs/transport"
@@ -143,7 +143,6 @@ func TestTransportClosedOnWriteReadError(t *testing.T) {
 }
 
 func testServer(t *testing.T, config *transport.ProxyConfig, run func(*testing.T, MockServerFactory, *transport.ProxyConfig)) {
-
 	runner := func(f MockServerFactory, c *transport.ProxyConfig) func(t *testing.T) {
 		return func(t *testing.T) {
 			run(t, f, config)

@@ -6,7 +6,6 @@ import (
 	"github.com/elastic/beats/libbeat/beat"
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/logp"
-	"github.com/elastic/beats/libbeat/publisher"
 
 	"sort"
 	"time"
@@ -17,7 +16,7 @@ import (
 type GithubHistoryBeat struct {
 	done   chan struct{}
 	config config.Config
-	client publisher.Client
+	client beat.Client
 }
 
 // Creates beater
@@ -37,7 +36,12 @@ func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
 func (bt *GithubHistoryBeat) Run(b *beat.Beat) error {
 	logp.Info("githubhistorybeat is running! Hit CTRL-C to stop it.")
 
-	bt.client = b.Publisher.Connect()
+	var err error
+	bt.client, err = b.Publisher.Connect()
+
+	if err != nil {
+		return err
+	}
 
 	for _, cr := range bt.config.Repositories {
 		times := make(map[time.Time]*Event)
@@ -85,16 +89,21 @@ func (bt *GithubHistoryBeat) Run(b *beat.Beat) error {
 
 		var lastEvent *Event
 		for _, t := range times_sorted {
-			event := t
+			data := t
 			if lastEvent != nil {
-				event.ForksCount += lastEvent.ForksCount
-				event.StargazersCount += lastEvent.StargazersCount
-				event.ReleasesCount += lastEvent.ReleasesCount
-				event.OpenIssuesCount += lastEvent.OpenIssuesCount
-				event.PullRequestsCount += lastEvent.PullRequestsCount
+				data.ForksCount += lastEvent.ForksCount
+				data.StargazersCount += lastEvent.StargazersCount
+				data.ReleasesCount += lastEvent.ReleasesCount
+				data.OpenIssuesCount += lastEvent.OpenIssuesCount
+				data.PullRequestsCount += lastEvent.PullRequestsCount
 			}
-			lastEvent = event
-			bt.client.PublishEvent(event.ToMapStr())
+
+			lastEvent = data
+			event := beat.Event{
+				Timestamp: data.ReadTime,
+				Fields: data.ToMapStr(),
+			}
+			bt.client.Publish(event)
 			logp.Info("Event sent")
 		}
 	}
