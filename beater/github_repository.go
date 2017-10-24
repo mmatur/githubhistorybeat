@@ -4,9 +4,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/elastic/beats/libbeat/logp"
 	"github.com/google/go-github/github"
 	"golang.org/x/oauth2"
+
+	"github.com/elastic/beats/libbeat/logp"
 )
 
 type GithubRepository struct {

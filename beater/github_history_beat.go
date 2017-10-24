@@ -101,7 +101,7 @@ func (bt *GithubHistoryBeat) Run(b *beat.Beat) error {
 			lastEvent = data
 			event := beat.Event{
 				Timestamp: data.ReadTime,
-				Fields: data.ToMapStr(),
+				Fields:    data.ToMapStr(),
 			}
 			bt.client.Publish(event)
 			logp.Info("Event sent")
