@@ -22,7 +22,6 @@ type Event struct {
 func (h *Event) ToMapStr() common.MapStr {
 
 	event := common.MapStr{
-		"@timestamp":                            common.Time(h.ReadTime),
 		"type":                                  h.DocumentType,
 		"document_type":                         h.DocumentType,
 		"github.repository.fullname":            h.FullName,
